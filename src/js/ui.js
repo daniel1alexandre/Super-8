@@ -117,22 +117,26 @@ class TournamentUI {
     container.innerHTML = '';
 
     roundData.matches.forEach(match => {
-      const isTeamAWinner = match.finished && match.scoreA > match.scoreB;
-      const isTeamBWinner = match.finished && match.scoreB > match.scoreA;
+      const isFinished = !!match.finished;
+      const isEditing = !!match.isEditing;
+      const isLocked = isFinished && !isEditing;
+
+      const isTeamAWinner = isFinished && match.scoreA > match.scoreB;
+      const isTeamBWinner = isFinished && match.scoreB > match.scoreA;
 
       const card = document.createElement('div');
-      card.className = `match-card ${match.finished ? 'finished' : ''}`;
+      card.className = `match-card ${isFinished ? 'finished' : ''} ${isEditing ? 'editing-active' : ''}`;
 
       card.innerHTML = `
         <div class="match-court-header">
           <span class="court-badge">${match.court}</span>
-          <span class="match-status-badge ${match.finished ? 'concluida' : 'pendente'}">
-            ${match.finished ? 'Finalizada' : 'Em andamento'}
+          <span class="match-status-badge ${isFinished ? 'concluida' : 'pendente'}">
+            ${isFinished ? (isEditing ? '✏️ Editando...' : '✓ Finalizada / Salva') : 'Aguardando Resultado'}
           </span>
         </div>
 
         <div class="match-body">
-          <!-- Dupla A -->
+          <!-- Dupla 1 -->
           <div class="team-row ${isTeamAWinner ? 'winner' : ''}">
             <div class="team-players">
               <span class="team-name-label">Dupla 1</span>
@@ -143,13 +147,24 @@ class TournamentUI {
               </div>
             </div>
             <div class="score-controller">
-              <button class="btn-score-adjust" data-action="dec" data-match="${match.id}" data-team="A">-</button>
-              <span class="score-display">${match.scoreA}</span>
-              <button class="btn-score-adjust" data-action="inc" data-match="${match.id}" data-team="A">+</button>
+              ${!isLocked ? `<button class="btn-score-adjust" data-action="dec" data-match="${match.id}" data-team="A" title="Diminuir">-</button>` : ''}
+              <input 
+                type="number" 
+                min="0" 
+                max="99" 
+                class="score-input ${isLocked ? 'score-locked' : ''}" 
+                id="input-score-a-${match.id}" 
+                data-match="${match.id}" 
+                data-team="A" 
+                value="${match.scoreA}" 
+                ${isLocked ? 'readonly' : ''}
+                title="${isLocked ? 'Clique em Editar para alterar' : 'Digite o número de games'}"
+              />
+              ${!isLocked ? `<button class="btn-score-adjust" data-action="inc" data-match="${match.id}" data-team="A" title="Aumentar">+</button>` : ''}
             </div>
           </div>
 
-          <!-- Dupla B -->
+          <!-- Dupla 2 -->
           <div class="team-row ${isTeamBWinner ? 'winner' : ''}">
             <div class="team-players">
               <span class="team-name-label">Dupla 2</span>
@@ -160,53 +175,98 @@ class TournamentUI {
               </div>
             </div>
             <div class="score-controller">
-              <button class="btn-score-adjust" data-action="dec" data-match="${match.id}" data-team="B">-</button>
-              <span class="score-display">${match.scoreB}</span>
-              <button class="btn-score-adjust" data-action="inc" data-match="${match.id}" data-team="B">+</button>
+              ${!isLocked ? `<button class="btn-score-adjust" data-action="dec" data-match="${match.id}" data-team="B" title="Diminuir">-</button>` : ''}
+              <input 
+                type="number" 
+                min="0" 
+                max="99" 
+                class="score-input ${isLocked ? 'score-locked' : ''}" 
+                id="input-score-b-${match.id}" 
+                data-match="${match.id}" 
+                data-team="B" 
+                value="${match.scoreB}" 
+                ${isLocked ? 'readonly' : ''}
+                title="${isLocked ? 'Clique em Editar para alterar' : 'Digite o número de games'}"
+              />
+              ${!isLocked ? `<button class="btn-score-adjust" data-action="inc" data-match="${match.id}" data-team="B" title="Aumentar">+</button>` : ''}
             </div>
           </div>
         </div>
 
         <div class="match-footer">
-          <button class="btn btn-secondary btn-finish-match" data-match="${match.id}">
-            ${match.finished ? '↩ Reabrir Partida' : '✓ Finalizar Partida'}
-          </button>
+          ${isLocked ? `
+            <button class="btn btn-secondary btn-edit-match" data-match="${match.id}">
+              ✏️ Editar Resultado
+            </button>
+          ` : `
+            <button class="btn btn-primary btn-save-match" data-match="${match.id}">
+              💾 Salvar Resultado
+            </button>
+          `}
         </div>
       `;
 
-      // Eventos de pontuação
+      // Eventos de botões + / - para ajuste rápido
       card.querySelectorAll('.btn-score-adjust').forEach(btn => {
         btn.addEventListener('click', (e) => {
           const action = e.currentTarget.getAttribute('data-action');
           const mId = e.currentTarget.getAttribute('data-match');
           const team = e.currentTarget.getAttribute('data-team');
+          const inpA = card.querySelector(`#input-score-a-${mId}`);
+          const inpB = card.querySelector(`#input-score-b-${mId}`);
 
-          let newScoreA = match.scoreA;
-          let newScoreB = match.scoreB;
+          let valA = parseInt(inpA.value) || 0;
+          let valB = parseInt(inpB.value) || 0;
 
           if (team === 'A') {
-            newScoreA = action === 'inc' ? newScoreA + 1 : Math.max(0, newScoreA - 1);
+            valA = action === 'inc' ? valA + 1 : Math.max(0, valA - 1);
+            inpA.value = valA;
           } else {
-            newScoreB = action === 'inc' ? newScoreB + 1 : Math.max(0, newScoreB - 1);
+            valB = action === 'inc' ? valB + 1 : Math.max(0, valB - 1);
+            inpB.value = valB;
           }
 
-          this.sm.updateMatchScore(currentRound, mId, newScoreA, newScoreB);
+          this.sm.updateMatchScore(currentRound, mId, valA, valB);
+        });
+      });
+
+      // Digitação direta no input
+      card.querySelectorAll('.score-input').forEach(input => {
+        input.addEventListener('change', (e) => {
+          const mId = e.currentTarget.getAttribute('data-match');
+          const inpA = card.querySelector(`#input-score-a-${mId}`);
+          const inpB = card.querySelector(`#input-score-b-${mId}`);
+          const valA = Math.max(0, parseInt(inpA.value) || 0);
+          const valB = Math.max(0, parseInt(inpB.value) || 0);
+          inpA.value = valA;
+          inpB.value = valB;
+          this.sm.updateMatchScore(currentRound, mId, valA, valB);
+        });
+      });
+
+      // Botão Salvar Resultado
+      const saveBtn = card.querySelector('.btn-save-match');
+      if (saveBtn) {
+        saveBtn.addEventListener('click', () => {
+          const inpA = card.querySelector(`#input-score-a-${match.id}`);
+          const inpB = card.querySelector(`#input-score-b-${match.id}`);
+          const valA = Math.max(0, parseInt(inpA.value) || 0);
+          const valB = Math.max(0, parseInt(inpB.value) || 0);
+
+          this.sm.saveMatchResult(currentRound, match.id, valA, valB);
           this.renderMatches();
           this.renderLeaderboard();
           this.renderRoundsNav();
           this.updateHeaderProgress();
         });
-      });
+      }
 
-      // Botão finalizar
-      const finishBtn = card.querySelector('.btn-finish-match');
-      if (finishBtn) {
-        finishBtn.addEventListener('click', () => {
-          this.sm.toggleMatchFinished(currentRound, match.id);
+      // Botão Editar Resultado
+      const editBtn = card.querySelector('.btn-edit-match');
+      if (editBtn) {
+        editBtn.addEventListener('click', () => {
+          this.sm.editMatchResult(currentRound, match.id);
           this.renderMatches();
-          this.renderLeaderboard();
-          this.renderRoundsNav();
-          this.updateHeaderProgress();
         });
       }
 

@@ -74,9 +74,31 @@ class TournamentStateManager {
 
     match.scoreA = Math.max(0, parseInt(scoreA) || 0);
     match.scoreB = Math.max(0, parseInt(scoreB) || 0);
+    this.saveState();
+  }
 
-    // Marca como finalizado se ao menos um dos lados tiver pontuado e forem diferentes
-    match.finished = (match.scoreA > 0 || match.scoreB > 0) && (match.scoreA !== match.scoreB);
+  saveMatchResult(roundNumber, matchId, scoreA, scoreB) {
+    const roundObj = this.state.rounds.find(r => r.round === roundNumber);
+    if (!roundObj) return;
+
+    const match = roundObj.matches.find(m => m.id === matchId);
+    if (!match) return;
+
+    match.scoreA = Math.max(0, parseInt(scoreA) || 0);
+    match.scoreB = Math.max(0, parseInt(scoreB) || 0);
+    match.finished = true;
+    match.isEditing = false;
+    this.saveState();
+  }
+
+  editMatchResult(roundNumber, matchId) {
+    const roundObj = this.state.rounds.find(r => r.round === roundNumber);
+    if (!roundObj) return;
+
+    const match = roundObj.matches.find(m => m.id === matchId);
+    if (!match) return;
+
+    match.isEditing = true;
     this.saveState();
   }
 
@@ -88,6 +110,9 @@ class TournamentStateManager {
     if (!match) return;
 
     match.finished = !match.finished;
+    if (match.finished) {
+      match.isEditing = false;
+    }
     this.saveState();
   }
 
