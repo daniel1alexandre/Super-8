@@ -1,8 +1,7 @@
-/**
- * SUPER 8 BEACH TENNIS - GERENCIAMENTO DE ESTADO & CLASSIFICAÇÃO
+﻿/**
+ * SUPER BEACH TENNIS - GERENCIAMENTO DE ESTADO & CLASSIFICAÇÃO
  */
-
-const STORAGE_KEY = "SUPER8_BEACH_TENNIS_TOURNAMENT_DATA";
+const STORAGE_KEY = 'SUPER_BEACH_TENNIS_V3';
 
 class TournamentStateManager {
   constructor() {
@@ -11,17 +10,11 @@ class TournamentStateManager {
 
   getInitialState() {
     return {
+      phase: 'selection',
+      category: null,
+      format: null,
       started: false,
-      players: [
-        { id: "p1", name: "Jogador 1" },
-        { id: "p2", name: "Jogador 2" },
-        { id: "p3", name: "Jogador 3" },
-        { id: "p4", name: "Jogador 4" },
-        { id: "p5", name: "Jogador 5" },
-        { id: "p6", name: "Jogador 6" },
-        { id: "p7", name: "Jogador 7" },
-        { id: "p8", name: "Jogador 8" }
-      ],
+      players: [],
       currentRound: 1,
       rounds: []
     };
@@ -29,20 +22,13 @@ class TournamentStateManager {
 
   loadState() {
     try {
-      const data = localStorage.getItem(STORAGE_KEY);
-      return data ? JSON.parse(data) : null;
-    } catch (e) {
-      console.error("Erro ao carregar do LocalStorage", e);
-      return null;
-    }
+      const d = localStorage.getItem(STORAGE_KEY);
+      return d ? JSON.parse(d) : null;
+    } catch(e) { return null; }
   }
 
   saveState() {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
-    } catch (e) {
-      console.error("Erro ao salvar no LocalStorage", e);
-    }
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state)); } catch(e) {}
   }
 
   resetTournament() {
@@ -50,69 +36,73 @@ class TournamentStateManager {
     this.state = this.getInitialState();
   }
 
+  setSelection(category, format) {
+    const { TOURNAMENT_FORMATS, CATEGORIES } = window.TournamentConfig;
+    const fmt = TOURNAMENT_FORMATS[format];
+    const cat = CATEGORIES.find(c => c.id === category);
+    if (!fmt || !cat) return;
+    this.state.category = category;
+    this.state.format = format;
+    this.state.phase = 'setup';
+    this.state.started = false;
+    this.state.rounds = [];
+    this.state.currentRound = 1;
+    this.state.players = Array.from({ length: fmt.players }, (_, i) => ({
+      id: 'p' + (i + 1),
+      name: cat.playerLabel + ' ' + (i + 1)
+    }));
+    this.saveState();
+  }
+
   setPlayers(playersList) {
-    this.state.players = playersList.map((p, idx) => ({
-      id: `p${idx + 1}`,
-      name: p.name.trim() || `Jogador ${idx + 1}`
+    const { CATEGORIES } = window.TournamentConfig;
+    const cat = CATEGORIES.find(c => c.id === this.state.category);
+    const label = cat ? cat.playerLabel : 'Jogador';
+    this.state.players = playersList.map((p, i) => ({
+      id: 'p' + (i + 1),
+      name: (p.name || '').trim() || label + ' ' + (i + 1)
     }));
     this.saveState();
   }
 
   startTournament() {
-    this.state.rounds = window.Super8Algorithm.generateSuper8Matches(this.state.players);
+    this.state.rounds = window.RoundRobinEngine.generateTournamentMatches(
+      this.state.players, this.state.category
+    );
     this.state.started = true;
+    this.state.phase = 'playing';
     this.state.currentRound = 1;
     this.saveState();
   }
 
   updateMatchScore(roundNumber, matchId, scoreA, scoreB) {
-    const roundObj = this.state.rounds.find(r => r.round === roundNumber);
-    if (!roundObj) return;
-
-    const match = roundObj.matches.find(m => m.id === matchId);
-    if (!match) return;
-
-    match.scoreA = Math.max(0, parseInt(scoreA) || 0);
-    match.scoreB = Math.max(0, parseInt(scoreB) || 0);
+    const ro = this.state.rounds.find(r => r.round === roundNumber);
+    if (!ro) return;
+    const m = ro.matches.find(m => m.id === matchId);
+    if (!m) return;
+    m.scoreA = Math.max(0, parseInt(scoreA) || 0);
+    m.scoreB = Math.max(0, parseInt(scoreB) || 0);
     this.saveState();
   }
 
   saveMatchResult(roundNumber, matchId, scoreA, scoreB) {
-    const roundObj = this.state.rounds.find(r => r.round === roundNumber);
-    if (!roundObj) return;
-
-    const match = roundObj.matches.find(m => m.id === matchId);
-    if (!match) return;
-
-    match.scoreA = Math.max(0, parseInt(scoreA) || 0);
-    match.scoreB = Math.max(0, parseInt(scoreB) || 0);
-    match.finished = true;
-    match.isEditing = false;
+    const ro = this.state.rounds.find(r => r.round === roundNumber);
+    if (!ro) return;
+    const m = ro.matches.find(m => m.id === matchId);
+    if (!m) return;
+    m.scoreA = Math.max(0, parseInt(scoreA) || 0);
+    m.scoreB = Math.max(0, parseInt(scoreB) || 0);
+    m.finished = true;
+    m.isEditing = false;
     this.saveState();
   }
 
   editMatchResult(roundNumber, matchId) {
-    const roundObj = this.state.rounds.find(r => r.round === roundNumber);
-    if (!roundObj) return;
-
-    const match = roundObj.matches.find(m => m.id === matchId);
-    if (!match) return;
-
-    match.isEditing = true;
-    this.saveState();
-  }
-
-  toggleMatchFinished(roundNumber, matchId) {
-    const roundObj = this.state.rounds.find(r => r.round === roundNumber);
-    if (!roundObj) return;
-
-    const match = roundObj.matches.find(m => m.id === matchId);
-    if (!match) return;
-
-    match.finished = !match.finished;
-    if (match.finished) {
-      match.isEditing = false;
-    }
+    const ro = this.state.rounds.find(r => r.round === roundNumber);
+    if (!ro) return;
+    const m = ro.matches.find(m => m.id === matchId);
+    if (!m) return;
+    m.isEditing = true;
     this.saveState();
   }
 
@@ -121,104 +111,47 @@ class TournamentStateManager {
     this.saveState();
   }
 
-  /**
-   * Computa a classificação individual em tempo real com base em todos os jogos finalizados.
-   */
   getLeaderboard() {
     const stats = {};
-
-    // Inicializa estatísticas para cada jogador
     this.state.players.forEach(p => {
-      stats[p.id] = {
-        id: p.id,
-        name: p.name,
-        matchesPlayed: 0,
-        wins: 0,
-        losses: 0,
-        gamesWon: 0,
-        gamesLost: 0,
-        balance: 0,
-        winRate: 0
-      };
+      stats[p.id] = { id: p.id, name: p.name, matchesPlayed: 0, wins: 0, losses: 0, gamesWon: 0, gamesLost: 0, balance: 0, winRate: 0 };
     });
 
-    if (!this.state.rounds || this.state.rounds.length === 0) {
-      return Object.values(stats);
-    }
+    if (!this.state.rounds || !this.state.rounds.length) return Object.values(stats);
 
-    // Processa cada partida
     this.state.rounds.forEach(round => {
       round.matches.forEach(match => {
-        // Se a partida tiver pontuação ou estiver marcada como finalizada
-        const scoreA = match.scoreA || 0;
-        const scoreB = match.scoreB || 0;
-
-        if (scoreA > 0 || scoreB > 0 || match.finished) {
-          const isFinished = match.finished || (scoreA !== scoreB);
-          
-          // Equipe A
-          match.teamA.forEach(player => {
+        if (match.isByeMatch) return;
+        const sA = match.scoreA || 0, sB = match.scoreB || 0;
+        if (sA === 0 && sB === 0 && !match.finished) return;
+        const finished = match.finished || (sA !== sB);
+        [match.teamA, match.teamB].forEach((team, ti) => {
+          team.forEach(player => {
             const st = stats[player.id];
-            if (st) {
-              st.matchesPlayed += 1;
-              st.gamesWon += scoreA;
-              st.gamesLost += scoreB;
-              if (isFinished) {
-                if (scoreA > scoreB) st.wins += 1;
-                else if (scoreB > scoreA) st.losses += 1;
-              }
-            }
+            if (!st) return;
+            st.matchesPlayed++;
+            if (ti === 0) { st.gamesWon += sA; st.gamesLost += sB; if (finished) { if (sA > sB) st.wins++; else if (sB > sA) st.losses++; } }
+            else { st.gamesWon += sB; st.gamesLost += sA; if (finished) { if (sB > sA) st.wins++; else if (sA > sB) st.losses++; } }
           });
-
-          // Equipe B
-          match.teamB.forEach(player => {
-            const st = stats[player.id];
-            if (st) {
-              st.matchesPlayed += 1;
-              st.gamesWon += scoreB;
-              st.gamesLost += scoreA;
-              if (isFinished) {
-                if (scoreB > scoreA) st.wins += 1;
-                else if (scoreA > scoreB) st.losses += 1;
-              }
-            }
-          });
-        }
+        });
       });
     });
 
-    // Calcula saldo e aproveitamento
-    const list = Object.values(stats).map(st => {
+    return Object.values(stats).map(st => {
       st.balance = st.gamesWon - st.gamesLost;
       st.winRate = st.matchesPlayed > 0 ? Math.round((st.wins / st.matchesPlayed) * 100) : 0;
       return st;
-    });
-
-    // Ordenação padrão Beach Tennis:
-    // 1. Vitórias (desc)
-    // 2. Saldo de Games (desc)
-    // 3. Games Pró (desc)
-    list.sort((a, b) => {
-      if (b.wins !== a.wins) return b.wins - a.wins;
-      if (b.balance !== a.balance) return b.balance - a.balance;
-      return b.gamesWon - a.gamesWon;
-    });
-
-    return list;
+    }).sort((a, b) => b.wins !== a.wins ? b.wins - a.wins : b.balance !== a.balance ? b.balance - a.balance : b.gamesWon - a.gamesWon);
   }
 
   getCompletedMatchesCount() {
-    let total = 0;
-    let completed = 0;
+    let total = 0, completed = 0;
     if (this.state.rounds) {
-      this.state.rounds.forEach(r => {
-        r.matches.forEach(m => {
-          total += 1;
-          if (m.finished) completed += 1;
-        });
-      });
+      this.state.rounds.forEach(r => r.matches.forEach(m => {
+        if (!m.isByeMatch) { total++; if (m.finished) completed++; }
+      }));
     }
-    return { completed, total: total || 14 };
+    return { completed, total };
   }
 }
 

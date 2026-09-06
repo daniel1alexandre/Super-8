@@ -1,154 +1,132 @@
-/**
- * SUPER 8 BEACH TENNIS - APP PRINCIPAL
+﻿/**
+ * SUPER BEACH TENNIS - APP PRINCIPAL
  */
+document.addEventListener("DOMContentLoaded", () => {
+  const sm = new TournamentStateManager();
+  const ui = new TournamentUI(sm);
 
-document.addEventListener('DOMContentLoaded', () => {
-  const stateManager = new TournamentStateManager();
-  const ui = new TournamentUI(stateManager);
+  ui.init();
 
-  // Inicializa a UI
-  ui.renderAll();
+  /* ─── TELA DE SELEÇÃO ─── */
 
-  // Alternância de Abas
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const tabId = e.currentTarget.getAttribute('data-tab');
-      ui.switchTab(tabId);
+  document.getElementById("btn-proceed-setup").addEventListener("click", () => {
+    if (!ui._selectedCategory || !ui._selectedFormat) return;
+    sm.setSelection(ui._selectedCategory, ui._selectedFormat);
+    ui.showScreen("app");
+    ui.updateAppHeader();
+    ui.renderPlayersSetup();
+    ui.updateHeaderProgress();
+    ui.switchTab("setup");
+  });
+
+  /* ─── ABAS ─── */
+  document.querySelectorAll(".tab-btn").forEach(btn => {
+    btn.addEventListener("click", e => ui.switchTab(e.currentTarget.dataset.tab));
+  });
+
+  /* ─── VOLTAR À SELEÇÃO ─── */
+  document.getElementById("btn-back-selection").addEventListener("click", () => {
+    if (sm.state.started) {
+      if (!confirm("Ao voltar, o torneio atual será mantido em rascunho. Deseja continuar?")) return;
+    }
+    sm.state.phase = "selection";
+    sm.saveState();
+    ui.showScreen("selection");
+    ui.renderCategoryCards();
+    const stepFmt = document.getElementById("step-format");
+    stepFmt.classList.add("sel-hidden");
+    document.getElementById("sel-cta").classList.add("sel-hidden");
+    document.querySelectorAll(".sel-category-card").forEach(c => c.classList.remove("selected"));
+    document.querySelectorAll(".sel-format-card").forEach(c => c.classList.remove("selected"));
+  });
+
+  /* ─── DEMO PLAYERS ─── */
+  document.getElementById("btn-demo-players").addEventListener("click", () => {
+    const { CATEGORIES, TOURNAMENT_FORMATS } = window.TournamentConfig;
+    const cat = CATEGORIES.find(c => c.id === sm.state.category);
+    const fmt = TOURNAMENT_FORMATS[sm.state.format];
+    if (!cat || !fmt) return;
+    const demos = (cat.demoNames || []).slice(0, fmt.players);
+    document.querySelectorAll(".player-name-input").forEach((inp, i) => {
+      inp.value = demos[i] || (cat.playerLabel + " " + (i + 1));
     });
   });
 
-  // Botão Preencher Exemplo
-  const btnDemo = document.getElementById('btn-demo-players');
-  if (btnDemo) {
-    btnDemo.addEventListener('click', () => {
-      const demoNames = [
-        "Lucas Silva",
-        "Gabriel Ramos",
-        "Matheus Costa",
-        "Felipe Santos",
-        "Rodrigo Lima",
-        "Thiago Rocha",
-        "Bruno Martins",
-        "Rafael Souza"
-      ];
-
-      const inputs = document.querySelectorAll('.player-name-input');
-      inputs.forEach((inp, idx) => {
-        inp.value = demoNames[idx] || `Jogador ${idx + 1}`;
-      });
-    });
-  }
-
-  // Iniciar Torneio
-  const btnStart = document.getElementById('btn-start-tournament');
-  if (btnStart) {
-    btnStart.addEventListener('click', () => {
-      const inputs = document.querySelectorAll('.player-name-input');
-      const playersList = [];
-
-      inputs.forEach((inp, idx) => {
-        const val = inp.value.trim() || `Jogador ${idx + 1}`;
-        playersList.push({ name: val });
-      });
-
-      if (playersList.length < 8) {
-        alert("O formato Super 8 requer exatamente 8 atletas!");
-        return;
+  /* ─── SALVAR NOMES AO DIGITAR ─── */
+  document.getElementById("players-input-grid").addEventListener("input", e => {
+    if (e.target.classList.contains("player-name-input")) {
+      const idx = parseInt(e.target.dataset.index);
+      if (sm.state.players[idx]) {
+        sm.state.players[idx].name = e.target.value;
+        sm.saveState();
       }
+    }
+  });
 
-      stateManager.setPlayers(playersList);
-      stateManager.startTournament();
-      ui.renderRoundsNav();
-      ui.renderMatches();
-      ui.renderLeaderboard();
-      ui.updateHeaderProgress();
-      ui.switchTab('matches');
+  /* ─── INICIAR TORNEIO ─── */
+  document.getElementById("btn-start-tournament").addEventListener("click", () => {
+    const inputs = document.querySelectorAll(".player-name-input");
+    const { CATEGORIES } = window.TournamentConfig;
+    const cat = CATEGORIES.find(c => c.id === sm.state.category) || {};
+    const label = cat.playerLabel || "Jogador";
+
+    const playersList = [];
+    inputs.forEach((inp, i) => {
+      playersList.push({ name: inp.value.trim() || label + " " + (i + 1) });
     });
-  }
 
-  // Salvar nomes ao digitar
-  const playerGrid = document.getElementById('players-input-grid');
-  if (playerGrid) {
-    playerGrid.addEventListener('input', (e) => {
-      if (e.target.classList.contains('player-name-input')) {
-        const idx = parseInt(e.target.getAttribute('data-index'));
-        const val = e.target.value;
-        if (stateManager.state.players[idx]) {
-          stateManager.state.players[idx].name = val;
-          stateManager.saveState();
-        }
-      }
+    sm.setPlayers(playersList);
+    sm.startTournament();
+    ui.renderRoundsNav();
+    ui.renderMatches();
+    ui.renderLeaderboard();
+    ui.updateHeaderProgress();
+    ui.switchTab("matches");
+  });
+
+  /* ─── MODO TV ─── */
+  document.getElementById("btn-tv-mode").addEventListener("click", () => {
+    document.body.classList.toggle("tv-mode");
+    const btn = document.getElementById("btn-tv-mode");
+    if (document.body.classList.contains("tv-mode")) {
+      btn.classList.replace("btn-secondary", "btn-primary");
+      btn.innerHTML = '<span class="btn-icon">✖</span> Sair Telão';
+      ui.switchTab("leaderboard");
+    } else {
+      btn.classList.replace("btn-primary", "btn-secondary");
+      btn.innerHTML = '<span class="btn-icon">📺</span> Modo TV';
+    }
+  });
+
+  /* ─── COMPARTILHAR ─── */
+  const modalShare = document.getElementById("modal-share");
+  document.getElementById("btn-share-results").addEventListener("click", () => {
+    document.getElementById("share-text-area").value = ui.generateShareText();
+    modalShare.style.display = "flex";
+  });
+  document.getElementById("btn-close-modal").addEventListener("click", () => { modalShare.style.display = "none"; });
+  document.getElementById("btn-copy-share").addEventListener("click", () => {
+    const ta = document.getElementById("share-text-area");
+    navigator.clipboard.writeText(ta.value).then(() => {
+      const btn = document.getElementById("btn-copy-share");
+      const orig = btn.innerHTML;
+      btn.innerHTML = "✅ Copiado!";
+      setTimeout(() => btn.innerHTML = orig, 2000);
     });
-  }
+  });
+  document.getElementById("btn-open-whatsapp").addEventListener("click", () => {
+    const text = encodeURIComponent(document.getElementById("share-text-area").value);
+    window.open("https://api.whatsapp.com/send?text=" + text, "_blank");
+  });
 
-  // Modo TV
-  const btnTv = document.getElementById('btn-tv-mode');
-  if (btnTv) {
-    btnTv.addEventListener('click', () => {
-      document.body.classList.toggle('tv-mode');
-      if (document.body.classList.contains('tv-mode')) {
-        btnTv.classList.add('btn-primary');
-        btnTv.classList.remove('btn-secondary');
-        btnTv.innerHTML = '<span class="btn-icon">✖</span> Sair Telão';
-        ui.switchTab('leaderboard');
-      } else {
-        btnTv.classList.remove('btn-primary');
-        btnTv.classList.add('btn-secondary');
-        btnTv.innerHTML = '<span class="btn-icon">📺</span> Modo TV';
-      }
-    });
-  }
-
-  // Modal Compartilhar
-  const modalShare = document.getElementById('modal-share');
-  const btnShare = document.getElementById('btn-share-results');
-  const btnCloseModal = document.getElementById('btn-close-modal');
-  const shareTextArea = document.getElementById('share-text-area');
-  const btnCopyShare = document.getElementById('btn-copy-share');
-  const btnOpenWhatsapp = document.getElementById('btn-open-whatsapp');
-
-  if (btnShare && modalShare && shareTextArea) {
-    btnShare.addEventListener('click', () => {
-      shareTextArea.value = ui.generateShareText();
-      modalShare.style.display = 'flex';
-    });
-  }
-
-  if (btnCloseModal && modalShare) {
-    btnCloseModal.addEventListener('click', () => {
-      modalShare.style.display = 'none';
-    });
-  }
-
-  if (btnCopyShare && shareTextArea) {
-    btnCopyShare.addEventListener('click', () => {
-      shareTextArea.select();
-      navigator.clipboard.writeText(shareTextArea.value).then(() => {
-        const originalText = btnCopyShare.innerHTML;
-        btnCopyShare.innerHTML = '✅ Copiado!';
-        setTimeout(() => {
-          btnCopyShare.innerHTML = originalText;
-        }, 2000);
-      });
-    });
-  }
-
-  if (btnOpenWhatsapp && shareTextArea) {
-    btnOpenWhatsapp.addEventListener('click', () => {
-      const text = encodeURIComponent(shareTextArea.value);
-      window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
-    });
-  }
-
-  // Reiniciar Torneio
-  const btnReset = document.getElementById('btn-reset-tournament');
-  if (btnReset) {
-    btnReset.addEventListener('click', () => {
-      if (confirm("Tem certeza que deseja reiniciar todo o torneio? Todos os placares e pontuações serão zerados.")) {
-        stateManager.resetTournament();
-        ui.renderAll();
-        ui.switchTab('setup');
-      }
-    });
-  }
+  /* ─── REINICIAR ─── */
+  document.getElementById("btn-reset-tournament").addEventListener("click", () => {
+    if (confirm("Tem certeza? Todo o progresso do torneio atual será perdido.")) {
+      sm.resetTournament();
+      ui.showScreen("selection");
+      ui.renderCategoryCards();
+      document.getElementById("step-format").classList.add("sel-hidden");
+      document.getElementById("sel-cta").classList.add("sel-hidden");
+    }
+  });
 });
