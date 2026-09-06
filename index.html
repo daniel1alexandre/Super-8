@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Gerenciador de Torneio Super 8 para Beach Tennis. Tabela automática de 7 rodadas com duplas rotativas e classificação individual em tempo real.">
+  <title>Super 8 Beach Tennis - Gerenciador de Torneio</title>
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Estilos -->
+  <link rel="stylesheet" href="src/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='46' fill='%23ff9f1c'/><path d='M30 50 Q50 20 70 50 Q50 80 30 50' stroke='%23ffffff' stroke-width='6' fill='none'/><circle cx='50' cy='50' r='8' fill='%23ffffff'/></svg>">
+</head>
+<body>
+  <!-- Header Principal -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="logo-area">
+        <div class="logo-icon">🎾</div>
+        <div>
+          <h1 class="app-title">SUPER <span>8</span></h1>
+          <p class="app-subtitle">Beach Tennis Tournament Manager</p>
+        </div>
+      </div>
+
+      <!-- Ações do Cabeçalho -->
+      <div class="header-actions">
+        <button id="btn-tv-mode" class="btn btn-secondary" title="Modo Telão / TV">
+          <span class="btn-icon">📺</span> Modo TV
+        </button>
+        <button id="btn-share-results" class="btn btn-secondary" title="Compartilhar no WhatsApp">
+          <span class="btn-icon">📲</span> Compartilhar
+        </button>
+        <button id="btn-reset-tournament" class="btn btn-danger-outline" title="Reiniciar Torneio">
+          <span class="btn-icon">🔄</span> Reiniciar
+        </button>
+      </div>
+    </div>
+
+    <!-- Navegação de Abas -->
+    <nav class="main-tabs">
+      <button class="tab-btn active" data-tab="setup">
+        <span class="tab-icon">👥</span> Participantes
+      </button>
+      <button class="tab-btn" data-tab="matches">
+        <span class="tab-icon">⚔️</span> Rodadas & Jogos
+        <span class="badge" id="badge-completed-matches">0/14</span>
+      </button>
+      <button class="tab-btn" data-tab="leaderboard">
+        <span class="tab-icon">🏆</span> Classificação
+      </button>
+    </nav>
+  </header>
+
+  <!-- Conteúdo Principal -->
+  <main class="main-content">
+    
+    <!-- ABA 1: SETUP DOS PARTICIPANTES -->
+    <section id="tab-setup" class="tab-pane active">
+      <div class="card setup-card">
+        <div class="card-header">
+          <div>
+            <h2 class="section-title">Inscrição dos 8 Atletas</h2>
+            <p class="section-desc">Insira o nome dos 8 jogadores que disputarão o Super 8 no formato todos-contra-todos em duplas alternadas.</p>
+          </div>
+          <button id="btn-demo-players" class="btn btn-accent-sm">
+            ✨ Preencher Exemplo
+          </button>
+        </div>
+
+        <div class="players-grid" id="players-input-grid">
+          <!-- Gerado dinamicamente via JS (8 cards de atletas) -->
+        </div>
+
+        <div class="setup-footer">
+          <div class="tournament-info-banner">
+            <span class="info-icon">ℹ️</span>
+            <span><strong>Regra do Super 8:</strong> O torneio possui <strong>7 rodadas</strong> com 2 quadras simultâneas (14 partidas no total). Cada jogador joga exatamente uma vez com cada um dos outros 7 inscritos como parceiro!</span>
+          </div>
+          <button id="btn-start-tournament" class="btn btn-primary btn-large">
+            🚀 Gerar Tabela & Iniciar Torneio
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ABA 2: RODADAS & PARTIDAS -->
+    <section id="tab-matches" class="tab-pane">
+      <div class="matches-header">
+        <div class="rounds-selector-wrapper">
+          <label for="round-select" class="selector-label">Rodada Atual:</label>
+          <div class="rounds-nav" id="rounds-nav-buttons">
+            <!-- Botões das 7 rodadas gerados via JS -->
+          </div>
+        </div>
+
+        <div class="round-status-box" id="round-status-box">
+          <span class="status-indicator"></span>
+          <span id="round-status-text">Rodada 1 de 7</span>
+        </div>
+      </div>
+
+      <!-- Lista de Jogos da Rodada -->
+      <div class="matches-grid" id="matches-grid">
+        <!-- Jogos gerados via JS -->
+      </div>
+    </section>
+
+    <!-- ABA 3: CLASSIFICAÇÃO / LEADERBOARD -->
+    <section id="tab-leaderboard" class="tab-pane">
+      <!-- Pódio Destaque (Top 3) -->
+      <div class="podium-wrapper" id="podium-container">
+        <!-- Top 3 renderizado via JS -->
+      </div>
+
+      <!-- Tabela Geral -->
+      <div class="card table-card">
+        <div class="card-header">
+          <h2 class="section-title">Classificação Geral Individual</h2>
+          <span class="badge-accent">Critérios: Vitórias &gt; Saldo de Games &gt; Games Pró</span>
+        </div>
+        <div class="table-responsive">
+          <table class="leaderboard-table" id="leaderboard-table">
+            <thead>
+              <tr>
+                <th class="text-center">#</th>
+                <th>Atleta</th>
+                <th class="text-center" title="Partidas Jogadas">PJ</th>
+                <th class="text-center" title="Vitórias">V</th>
+                <th class="text-center" title="Derrotas">D</th>
+                <th class="text-center" title="Games Pró">GP</th>
+                <th class="text-center" title="Games Contra">GC</th>
+                <th class="text-center" title="Saldo de Games">SG</th>
+                <th class="text-center" title="Aproveitamento de Vitórias">% Venc</th>
+              </tr>
+            </thead>
+            <tbody id="leaderboard-body">
+              <!-- Linhas geradas via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Modal de Compartilhamento / Resumo -->
+  <div class="modal-overlay" id="modal-share" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title">📲 Compartilhar Resultados</h3>
+        <button class="btn-close" id="btn-close-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-instruction">Copie a mensagem abaixo formatada para o grupo de Beach Tennis no WhatsApp:</p>
+        <textarea id="share-text-area" class="share-textarea" readonly rows="10"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-copy-share" class="btn btn-primary">
+          📋 Copiar Texto
+        </button>
+        <button id="btn-open-whatsapp" class="btn btn-whatsapp">
+          💬 Abrir WhatsApp
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="src/js/super8-algorithm.js"></script>
+  <script src="src/js/tournament-state.js"></script>
+  <script src="src/js/ui.js"></script>
+  <script src="src/js/app.js"></script>
+</body>
+</html>
