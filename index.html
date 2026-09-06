@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -26,6 +26,17 @@
           <h1 class="sel-app-title">SUPER <span class="sel-highlight">BEACH</span> TENNIS</h1>
           <p class="sel-app-subtitle">Tournament Manager &middot; Gerenciador de Torneios</p>
         </div>
+      </div>
+
+      <!-- Banner de Torneio Ativo / Continuar -->
+      <div id="sel-active-banner" class="sel-active-banner sel-hidden">
+        <div class="sel-active-info">
+          <span class="sel-active-badge">🎾 Torneio Ativo</span>
+          <span class="sel-active-text" id="sel-active-text">Super 8 &middot; Individual</span>
+        </div>
+        <button type="button" id="btn-resume-tournament" class="btn btn-secondary">
+          Continuar Torneio &rarr;
+        </button>
       </div>
 
       <div class="sel-block" id="step-category">
@@ -58,7 +69,7 @@
 
     <header class="app-header">
       <div class="header-container">
-        <button id="btn-back-selection" class="btn btn-ghost">← Categorias</button>
+        <button id="btn-back-selection" type="button" class="btn btn-ghost">← Categorias</button>
         <div class="logo-area">
           <div class="logo-icon">🎾</div>
           <div>

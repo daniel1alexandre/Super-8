@@ -1,4 +1,4 @@
-﻿/**
+/**
  * SUPER BEACH TENNIS - APP PRINCIPAL
  */
 document.addEventListener("DOMContentLoaded", () => {
@@ -11,34 +11,48 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("btn-proceed-setup").addEventListener("click", () => {
     if (!ui._selectedCategory || !ui._selectedFormat) return;
+    if (sm.state.started && sm.state.rounds && sm.state.rounds.some(r => r.matches && r.matches.some(m => m.finished))) {
+      if (!confirm("Já existem partidas finalizadas no torneio anterior. Deseja iniciar este novo torneio e substituir os dados?")) {
+        return;
+      }
+    }
     sm.setSelection(ui._selectedCategory, ui._selectedFormat);
     ui.showScreen("app");
     ui.updateAppHeader();
     ui.renderPlayersSetup();
     ui.updateHeaderProgress();
     ui.switchTab("setup");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   });
+
+  /* ─── CONTINUAR TORNEIO (BANNER NA SELEÇÃO) ─── */
+  const btnResume = document.getElementById("btn-resume-tournament");
+  if (btnResume) {
+    btnResume.addEventListener("click", () => {
+      ui.showScreen("app");
+      ui.updateAppHeader();
+      if (sm.state.started) {
+        ui.switchTab("matches");
+      } else {
+        ui.switchTab("setup");
+      }
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  }
 
   /* ─── ABAS ─── */
   document.querySelectorAll(".tab-btn").forEach(btn => {
     btn.addEventListener("click", e => ui.switchTab(e.currentTarget.dataset.tab));
   });
 
-  /* ─── VOLTAR À SELEÇÃO ─── */
-  document.getElementById("btn-back-selection").addEventListener("click", () => {
-    if (sm.state.started) {
-      if (!confirm("Ao voltar, o torneio atual será mantido em rascunho. Deseja continuar?")) return;
-    }
-    sm.state.phase = "selection";
-    sm.saveState();
-    ui.showScreen("selection");
-    ui.renderCategoryCards();
-    const stepFmt = document.getElementById("step-format");
-    stepFmt.classList.add("sel-hidden");
-    document.getElementById("sel-cta").classList.add("sel-hidden");
-    document.querySelectorAll(".sel-category-card").forEach(c => c.classList.remove("selected"));
-    document.querySelectorAll(".sel-format-card").forEach(c => c.classList.remove("selected"));
-  });
+  /* ─── VOLTAR À SELEÇÃO DE CATEGORIAS / TORNEIOS ─── */
+  const btnBackSel = document.getElementById("btn-back-selection");
+  if (btnBackSel) {
+    btnBackSel.addEventListener("click", (e) => {
+      e.preventDefault();
+      ui.goToSelection();
+    });
+  }
 
   /* ─── DEMO PLAYERS ─── */
   document.getElementById("btn-demo-players").addEventListener("click", () => {
@@ -82,6 +96,7 @@ document.addEventListener("DOMContentLoaded", () => {
     ui.renderLeaderboard();
     ui.updateHeaderProgress();
     ui.switchTab("matches");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   });
 
   /* ─── MODO TV ─── */
@@ -123,10 +138,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btn-reset-tournament").addEventListener("click", () => {
     if (confirm("Tem certeza? Todo o progresso do torneio atual será perdido.")) {
       sm.resetTournament();
-      ui.showScreen("selection");
-      ui.renderCategoryCards();
-      document.getElementById("step-format").classList.add("sel-hidden");
-      document.getElementById("sel-cta").classList.add("sel-hidden");
+      ui.goToSelection();
     }
   });
 });

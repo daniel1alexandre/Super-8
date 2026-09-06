@@ -1,4 +1,4 @@
-﻿/**
+/**
  * SUPER BEACH TENNIS - MÓDULO DE INTERFACE (UI)
  */
 class TournamentUI {
@@ -13,6 +13,7 @@ class TournamentUI {
   showScreen(screen) {
     const sel = document.getElementById('screen-selection');
     const app = document.getElementById('screen-app');
+    if (!sel || !app) return;
     if (screen === 'selection') {
       sel.classList.remove('sel-hidden');
       app.classList.add('sel-hidden');
@@ -22,11 +23,47 @@ class TournamentUI {
     }
   }
 
+  goToSelection() {
+    this._selectedCategory = null;
+    this._selectedFormat = null;
+    this.sm.state.phase = 'selection';
+    this.sm.saveState();
+    this.showScreen('selection');
+    this.renderCategoryCards();
+    const stepFmt = document.getElementById('step-format');
+    if (stepFmt) stepFmt.classList.add('sel-hidden');
+    const cta = document.getElementById('sel-cta');
+    if (cta) cta.classList.add('sel-hidden');
+    this.updateActiveTournamentBanner();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  updateActiveTournamentBanner() {
+    const banner = document.getElementById('sel-active-banner');
+    const textEl = document.getElementById('sel-active-text');
+    if (!banner || !textEl) return;
+
+    const { category, format, started, players } = this.sm.state;
+    if (category && format && (started || (players && players.length > 0))) {
+      const { CATEGORIES, TOURNAMENT_FORMATS } = window.TournamentConfig;
+      const cat = CATEGORIES.find(c => c.id === category);
+      const fmt = TOURNAMENT_FORMATS[format];
+      if (cat && fmt) {
+        textEl.innerHTML = '<strong>Super ' + fmt.numeral + '</strong> &middot; ' + cat.label + ' ' +
+          (started ? '<span style="color:var(--accent-orange)">(Em andamento)</span>' : '<span style="color:var(--text-secondary)">(Configurado)</span>');
+        banner.classList.remove('sel-hidden');
+        return;
+      }
+    }
+    banner.classList.add('sel-hidden');
+  }
+
   init() {
     const { phase } = this.sm.state;
     if (phase === 'selection') {
       this.showScreen('selection');
       this.renderCategoryCards();
+      this.updateActiveTournamentBanner();
     } else {
       this.showScreen('app');
       this._selectedCategory = this.sm.state.category;
@@ -55,24 +92,12 @@ class TournamentUI {
 
     CATEGORIES.forEach(cat => {
       const card = document.createElement('div');
-      card.className = 'sel-category-card';
+      card.className = 'sel-category-card' + (this._selectedCategory === cat.id ? ' selected' : '');
       card.style.setProperty('--card-color', cat.color);
       card.style.setProperty('--card-glow', cat.borderColor);
 
       card.innerHTML =
-        '<div class="sel-category-icon-bg" style="background:' + cat.gradient + ';opacity:0.15;">' +
-        '<span class="sel-category-icon">' + cat.icon + '</span></div>' +
-        '<div class="sel-category-name">' + cat.label + '</div>' +
-        '<div class="sel-category-desc">' + cat.description.replace(/\n/g, '<br>') + '</div>';
-
-      const iconBg = card.querySelector('.sel-category-icon-bg');
-      iconBg.style.opacity = '1';
-      iconBg.style.background = 'none';
-      iconBg.querySelector('.sel-category-icon').style = '';
-
-      // Re-render simpler
-      card.innerHTML =
-        '<div class="sel-cat-icon-wrap" style="font-size:2.6rem;width:68px;height:68px;border-radius:16px;display:flex;align-items:center;justify-content:center;background:' + cat.gradient.replace('linear-gradient','linear-gradient') + ';opacity-on-card:1;margin-bottom:0.25rem;">' + cat.icon + '</div>' +
+        '<div class="sel-cat-icon-wrap" style="font-size:2.6rem;width:68px;height:68px;border-radius:16px;display:flex;align-items:center;justify-content:center;background:' + cat.gradient + ';margin-bottom:0.25rem;">' + cat.icon + '</div>' +
         '<div class="sel-category-name">' + cat.label + '</div>' +
         '<div class="sel-category-desc">' + cat.description.replace(/\n/g, '<br>') + '</div>';
 
