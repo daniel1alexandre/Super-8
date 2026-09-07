@@ -7,36 +7,71 @@ document.addEventListener("DOMContentLoaded", () => {
 
   ui.init();
 
-  /* ─── TELA DE SELEÇÃO ─── */
+  /* ─── TELA DE SELEÇÃO: CRIAR NOVO TORNEIO ─── */
 
   document.getElementById("btn-proceed-setup").addEventListener("click", () => {
     if (!ui._selectedCategory || !ui._selectedFormat) return;
-    if (sm.state.started && sm.state.rounds && sm.state.rounds.some(r => r.matches && r.matches.some(m => m.finished))) {
-      if (!confirm("Já existem partidas finalizadas no torneio anterior. Deseja iniciar este novo torneio e substituir os dados?")) {
-        return;
+
+    const titleInput = document.getElementById("input-tournament-title");
+    const titleVal = titleInput ? titleInput.value.trim() : "";
+    if (!titleVal) {
+      const err = document.getElementById("title-error-msg");
+      if (err) err.style.display = "block";
+      if (titleInput) {
+        titleInput.classList.add("input-error");
+        titleInput.focus();
+        titleInput.scrollIntoView({ behavior: "smooth", block: "center" });
       }
+      ui.showToast("⚠️ O título do torneio é obrigatório!");
+      return;
     }
-    sm.setSelection(ui._selectedCategory, ui._selectedFormat);
-    ui.showScreen("app");
-    ui.updateAppHeader();
-    ui.renderPlayersSetup();
-    ui.updateHeaderProgress();
-    ui.switchTab("setup");
-    window.scrollTo({ top: 0, behavior: "smooth" });
+
+    const newTourn = sm.createTournament(ui._selectedCategory, ui._selectedFormat, titleVal, ui._selectedGender);
+    if (newTourn) {
+      ui.openTournament(newTourn.id);
+      ui.showToast("✨ Torneio \"" + newTourn.title + "\" criado com sucesso!");
+    }
   });
 
-  /* ─── CONTINUAR TORNEIO (BANNER NA SELEÇÃO) ─── */
+  /* ─── BOTÃO "+ NOVO TORNEIO" ─── */
+  const btnCreateAnother = document.getElementById("btn-create-another-tournament");
+  if (btnCreateAnother) {
+    btnCreateAnother.addEventListener("click", () => {
+      const stepCat = document.getElementById("step-category");
+      if (stepCat) stepCat.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
+  const btnHeaderNew = document.getElementById("btn-header-new-tournament");
+  if (btnHeaderNew) {
+    btnHeaderNew.addEventListener("click", () => {
+      ui.goToSelection();
+      const stepCat = document.getElementById("step-category");
+      if (stepCat) stepCat.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
+  /* ─── SELETOR DE TORNEIOS NO HEADER ─── */
+  const selectSwitcher = document.getElementById("select-tournament-switcher");
+  if (selectSwitcher) {
+    selectSwitcher.addEventListener("change", (e) => {
+      const selectedId = e.target.value;
+      if (selectedId) {
+        ui.openTournament(selectedId);
+      }
+    });
+  }
+
+  /* ─── CONTINUAR TORNEIO (BANNER LEGADO NA SELEÇÃO) ─── */
   const btnResume = document.getElementById("btn-resume-tournament");
   if (btnResume) {
     btnResume.addEventListener("click", () => {
-      ui.showScreen("app");
-      ui.updateAppHeader();
-      if (sm.state.started) {
-        ui.switchTab("matches");
+      const active = sm.getActiveTournament();
+      if (active) {
+        ui.openTournament(active.id);
       } else {
-        ui.switchTab("setup");
+        ui.goToSelection();
       }
-      window.scrollTo({ top: 0, behavior: "smooth" });
     });
   }
 
@@ -60,17 +95,41 @@ document.addEventListener("DOMContentLoaded", () => {
     const cat = CATEGORIES.find(c => c.id === sm.state.category);
     const fmt = TOURNAMENT_FORMATS[sm.state.format];
     if (!cat || !fmt) return;
-    const demos = (cat.demoNames || []).slice(0, fmt.players);
-    document.querySelectorAll(".player-name-input").forEach((inp, i) => {
-      inp.value = demos[i] || (cat.playerLabel + " " + (i + 1));
-    });
+
+    if (fmt.isMixed) {
+      // Mistas: preencher homens e mulheres separadamente
+      const demosM = cat.demoNamesM || [];
+      const demosF = cat.demoNamesF || [];
+      document.querySelectorAll(".player-name-input[data-gender='m']").forEach((inp, i) => {
+        inp.value = demosM[i] || ("Homem " + (i + 1));
+        const idx = parseInt(inp.dataset.index);
+        if (sm.state.players[idx]) sm.state.players[idx].name = inp.value;
+      });
+      document.querySelectorAll(".player-name-input[data-gender='f']").forEach((inp, i) => {
+        inp.value = demosF[i] || ("Mulher " + (i + 1));
+        const idx = parseInt(inp.dataset.index);
+        if (sm.state.players[idx]) sm.state.players[idx].name = inp.value;
+      });
+      sm.saveState();
+    } else {
+      const isFem = sm.state.gender === 'feminino';
+      const demoPool = (isFem && cat.demoNamesF) ? cat.demoNamesF : (cat.demoNames || []);
+      const demos = demoPool.slice(0, fmt.players);
+      const fallbackLabel = isFem ? (cat.id === 'duplas' ? 'Dupla' : 'Atleta') : (cat.playerLabel || 'Jogador');
+      document.querySelectorAll(".player-name-input").forEach((inp, i) => {
+        inp.value = demos[i] || (fallbackLabel + " " + (i + 1));
+        const idx = parseInt(inp.dataset.index);
+        if (sm.state.players[idx]) sm.state.players[idx].name = inp.value;
+      });
+      sm.saveState();
+    }
   });
 
   /* ─── SALVAR NOMES AO DIGITAR ─── */
   document.getElementById("players-input-grid").addEventListener("input", e => {
     if (e.target.classList.contains("player-name-input")) {
       const idx = parseInt(e.target.dataset.index);
-      if (sm.state.players[idx]) {
+      if (sm.state.players[idx] !== undefined) {
         sm.state.players[idx].name = e.target.value;
         sm.saveState();
       }
@@ -80,13 +139,20 @@ document.addEventListener("DOMContentLoaded", () => {
   /* ─── INICIAR TORNEIO ─── */
   document.getElementById("btn-start-tournament").addEventListener("click", () => {
     const inputs = document.querySelectorAll(".player-name-input");
-    const { CATEGORIES } = window.TournamentConfig;
+    const { CATEGORIES, TOURNAMENT_FORMATS } = window.TournamentConfig;
     const cat = CATEGORIES.find(c => c.id === sm.state.category) || {};
+    const fmt = TOURNAMENT_FORMATS[sm.state.format] || {};
     const label = cat.playerLabel || "Jogador";
 
+    // Preservar gênero e id dos jogadores existentes (Mistas)
     const playersList = [];
-    inputs.forEach((inp, i) => {
-      playersList.push({ name: inp.value.trim() || label + " " + (i + 1) });
+    inputs.forEach((inp) => {
+      const idx    = parseInt(inp.dataset.index);
+      const id     = inp.dataset.id     || (sm.state.players[idx] && sm.state.players[idx].id) || ('p' + (idx + 1));
+      const gender = inp.dataset.gender || (sm.state.players[idx] && sm.state.players[idx].gender) || null;
+      const num    = id ? id.replace(/[a-z]/gi, '') : (idx + 1);
+      const name   = inp.value.trim() || (gender === 'm' ? 'Homem ' + num : gender === 'f' ? 'Mulher ' + num : label + ' ' + (idx + 1));
+      playersList.push({ id, name, gender });
     });
 
     sm.setPlayers(playersList);
@@ -134,11 +200,97 @@ document.addEventListener("DOMContentLoaded", () => {
     window.open("https://api.whatsapp.com/send?text=" + text, "_blank");
   });
 
-  /* ─── REINICIAR ─── */
-  document.getElementById("btn-reset-tournament").addEventListener("click", () => {
-    if (confirm("Tem certeza? Todo o progresso do torneio atual será perdido.")) {
+  /* ─── MODAL E AÇÕES: CANCELAR / EXCLUIR TORNEIO ─── */
+  const modalDelete = document.getElementById("modal-confirm-delete");
+  const btnCloseDeleteModal = document.getElementById("btn-close-delete-modal");
+  const btnAbortDelete = document.getElementById("btn-abort-delete");
+  const btnExecuteDelete = document.getElementById("btn-execute-delete");
+  let tournamentIdToDelete = null;
+
+  function openDeleteModal(id = null, title = '') {
+    tournamentIdToDelete = id || (sm.data ? sm.data.activeTournamentId : null);
+    const active = id ? sm.getTournaments().find(t => t.id === id) : sm.getActiveTournament();
+    const modalText = document.querySelector("#modal-confirm-delete .modal-warning-text");
+    if (modalText) {
+      const tournName = title || (active ? active.title : "este torneio");
+      modalText.textContent = `Deseja realmente cancelar e excluir "${tournName}"?`;
+    }
+
+    if (modalDelete) {
+      modalDelete.style.display = "flex";
+    } else if (confirm("Deseja realmente cancelar e excluir este torneio? Todos os dados serão apagados.")) {
+      executeDeleteTournament();
+    }
+  }
+
+  window.handleDeleteTournamentRequest = (id, title) => {
+    openDeleteModal(id, title);
+  };
+
+  function closeDeleteModal() {
+    if (modalDelete) modalDelete.style.display = "none";
+    tournamentIdToDelete = null;
+  }
+
+  function executeDeleteTournament() {
+    const id = tournamentIdToDelete || (sm.data ? sm.data.activeTournamentId : null);
+    closeDeleteModal();
+
+    if (id) {
+      sm.deleteTournament(id);
+    } else {
       sm.resetTournament();
-      ui.goToSelection();
+    }
+
+    const remaining = sm.getTournaments();
+    const isAppScreenActive = !document.getElementById("screen-app").classList.contains("sel-hidden");
+
+    if (isAppScreenActive) {
+      if (remaining.length > 0 && sm.getActiveTournament()) {
+        ui.openTournament(sm.data.activeTournamentId);
+      } else {
+        ui.goToSelection();
+      }
+    } else {
+      ui.renderActiveTournamentsList();
+      ui.updateActiveTournamentBanner();
+    }
+
+    ui.showToast("🗑️ Torneio excluído com sucesso!");
+  }
+
+  if (btnCloseDeleteModal) btnCloseDeleteModal.addEventListener("click", closeDeleteModal);
+  if (btnAbortDelete) btnAbortDelete.addEventListener("click", closeDeleteModal);
+  if (btnExecuteDelete) btnExecuteDelete.addEventListener("click", executeDeleteTournament);
+
+  if (modalDelete) {
+    modalDelete.addEventListener("click", (e) => {
+      if (e.target === modalDelete) closeDeleteModal();
+    });
+  }
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      closeDeleteModal();
+      if (modalShare) modalShare.style.display = "none";
+    }
+  });
+
+  // Vincular em todos os botões de Cancelar / Excluir Torneio:
+  const deleteBtnSelectors = [
+    "#btn-cancel-tournament",
+    "#btn-reset-tournament",
+    "#btn-cancel-setup",
+    "#btn-delete-banner-tournament"
+  ];
+
+  deleteBtnSelectors.forEach(selector => {
+    const el = document.querySelector(selector);
+    if (el) {
+      el.addEventListener("click", (e) => {
+        e.preventDefault();
+        openDeleteModal();
+      });
     }
   });
 });

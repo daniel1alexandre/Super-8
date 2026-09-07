@@ -1,11 +1,36 @@
-﻿/**
+/**
  * SUPER BEACH TENNIS - MOTOR DE RODÍZIO GENÉRICO
  * Algoritmo Berger (Método Circular) para N jogadores.
- * Suporta Individual/Mistas (duplas rotativas) e Duplas Fixas.
+ * Suporta Individual/Mistas (duplas rotativas), Duplas Fixas e Mistas Individual.
  */
 
 /**
- * Rodízio de Duplas Rotativas — Individual / Mistas
+ * Gera as posições do rodízio Berger para N participantes.
+ * Retorna array de rodadas; cada rodada é array de pares [posA, posB].
+ */
+function generateBergerPositions(n) {
+  const isOdd = n % 2 !== 0;
+  const m = isOdd ? n + 1 : n;
+  const arr = Array.from({ length: m }, (_, i) => i);
+  const numRounds = m - 1;
+  const rounds = [];
+
+  for (let r = 0; r < numRounds; r++) {
+    const pairs = [];
+    for (let i = 0; i < m / 2; i++) {
+      pairs.push([arr[i], arr[m - 1 - i]]);
+    }
+    const last = arr[m - 1];
+    for (let i = m - 1; i > 1; i--) arr[i] = arr[i - 1];
+    arr[1] = last;
+    // Filtra pares que envolvam o "ghost" (posição >= n) para retornar somente reais
+    rounds.push(pairs.filter(p => p[0] < n && p[1] < n));
+  }
+  return rounds;
+}
+
+/**
+ * Rodízio de Duplas Rotativas — Individual
  * Cada jogador faz dupla exatamente 1x com cada outro jogador.
  */
 function generateRotatingDoublesRoundRobin(players) {
@@ -25,7 +50,6 @@ function generateRotatingDoublesRoundRobin(players) {
       rawPairs.push([list[arr[i]], list[arr[m - 1 - i]]]);
     }
 
-    // Rotaciona arr[1..m-1] uma posição à direita
     const last = arr[m - 1];
     for (let i = m - 1; i > 1; i--) arr[i] = arr[i - 1];
     arr[1] = last;
@@ -116,9 +140,67 @@ function generateDuplasFixasRoundRobin(teams) {
   return rounds;
 }
 
+/**
+ * Super 8 Mistas Individual
+ * 8 homens + 8 mulheres → 7 rodadas, 4 quadras por rodada.
+ *
+ * Algoritmo: aplica Berger separadamente para homens e para mulheres.
+ * Em cada rodada r, quadra k:
+ *   Dupla A = (homem da posA_men, mulher da posA_women)
+ *   Dupla B = (homem da posB_men, mulher da posB_women)
+ *
+ * Isso garante que cada homem joga contra todos os outros homens ao longo
+ * do torneio, cada mulher joga contra todas as outras mulheres, e as
+ * duplas mistas rotacionam a cada rodada.
+ */
+function generateMixedIndividualMatches(men, women) {
+  const menPositions = generateBergerPositions(men.length); // 7 rodadas, 4 confrontos por rodada
+  const numRounds = menPositions.length;
+  const rounds = [];
+
+  for (let r = 0; r < numRounds; r++) {
+    const mPairs = menPositions[r]; // pares de índices de homens para cada quadra
+    const matches = [];
+
+    for (let k = 0; k < mPairs.length; k++) {
+      const idxManA = mPairs[k][0];
+      const idxManB = mPairs[k][1];
+
+      // A cada rodada r, a parceira do Homem i é a Mulher (i + r) % 8.
+      // Isso garante parceiras 100% diferentes a cada rodada (sem repetição).
+      const idxWomanA = (idxManA + r) % women.length;
+      const idxWomanB = (idxManB + r) % women.length;
+
+      const man_a   = men[idxManA];
+      const woman_a = women[idxWomanA];
+      const man_b   = men[idxManB];
+      const woman_b = women[idxWomanB];
+
+      matches.push({
+        id: 'R' + (r + 1) + '-M' + (k + 1),
+        court: 'Quadra ' + (k + 1),
+        teamA: [man_a, woman_a],   // Dupla Mista A (Homem A + Mulher A)
+        teamB: [man_b, woman_b],   // Dupla Mista B (Homem B + Mulher B)
+        scoreA: 0, scoreB: 0,
+        finished: false, isEditing: false, isByeMatch: false,
+        isMixed: true
+      });
+    }
+
+    rounds.push({ round: r + 1, matches, byePlayers: [] });
+  }
+
+  return rounds;
+}
+
 function generateTournamentMatches(players, category) {
   if (category === 'duplas') {
     return generateDuplasFixasRoundRobin(players);
+  }
+  if (category === 'mistas') {
+    const men   = players.filter(p => p.gender === 'm');
+    const women = players.filter(p => p.gender === 'f');
+    return generateMixedIndividualMatches(men, women);
   }
   return generateRotatingDoublesRoundRobin(players);
 }
@@ -126,5 +208,7 @@ function generateTournamentMatches(players, category) {
 window.RoundRobinEngine = {
   generateTournamentMatches,
   generateRotatingDoublesRoundRobin,
-  generateDuplasFixasRoundRobin
+  generateDuplasFixasRoundRobin,
+  generateMixedIndividualMatches,
+  generateBergerPositions
 };

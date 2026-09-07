@@ -1,4 +1,4 @@
-﻿/**
+/**
  * SUPER BEACH TENNIS - CONFIGURAÇÃO DE CATEGORIAS E FORMATOS
  */
 
@@ -11,6 +11,27 @@ const TOURNAMENT_FORMATS = {
   'super10': { id: 'super10', name: 'Super 10', numeral: '10', players: 10, rounds: 9,  courts: 2, description: '10 atletas · 9 rodadas · 2 quadras' },
   'super11': { id: 'super11', name: 'Super 11', numeral: '11', players: 11, rounds: 11, courts: 2, description: '11 atletas · 11 rodadas · 2 quadras' },
   'super12': { id: 'super12', name: 'Super 12', numeral: '12', players: 12, rounds: 11, courts: 3, description: '12 atletas · 11 rodadas · 3 quadras' },
+
+  // ─── Formato Exclusivo Mistas ───────────────────────────────────────
+  'super8mistas': {
+    id: 'super8mistas',
+    name: 'Super 8 Mistas Individual',
+    numeral: '8',
+    players: 16,          // 8 homens + 8 mulheres
+    playersPerGender: 8,
+    rounds: 7,
+    courts: 4,
+    description: '8 Homens + 8 Mulheres · 7 rodadas · 4 quadras · Duplas mistas rotativas',
+    featured: true,
+    isMixed: true
+  }
+};
+
+// Formatos permitidos por categoria
+const CATEGORY_FORMATS = {
+  individual: ['super5', 'super6', 'super7', 'super8', 'super9', 'super10', 'super11', 'super12'],
+  duplas:     ['super5', 'super6', 'super7', 'super8', 'super9', 'super10', 'super11', 'super12'],
+  mistas:     ['super8mistas']
 };
 
 const CATEGORIES = [
@@ -24,7 +45,8 @@ const CATEGORIES = [
     color: '#ff9f1c',
     playerLabel: 'Atleta',
     playerPlaceholder: 'Nome do Atleta',
-    demoNames: ['Lucas Silva','Gabriel Ramos','Matheus Costa','Felipe Santos','Rodrigo Lima','Thiago Rocha','Bruno Martins','Rafael Souza','André Lima','Caio Ferreira','Diego Alves','Enzo Carvalho']
+    demoNames: ['Lucas Silva','Gabriel Ramos','Matheus Costa','Felipe Santos','Rodrigo Lima','Thiago Rocha','Bruno Martins','Rafael Souza','André Lima','Caio Ferreira','Diego Alves','Enzo Carvalho'],
+    demoNamesF: ['Ana Lima','Carla Souza','Mariana Rocha','Beatriz Alves','Júlia Ferreira','Vitória Cruz','Camila Dias','Larissa Neves','Fernanda Santos','Bruna Costa','Isabela Ramos','Letícia Martins']
   },
   {
     id: 'duplas',
@@ -36,20 +58,23 @@ const CATEGORIES = [
     color: '#2ec4b6',
     playerLabel: 'Dupla',
     playerPlaceholder: 'Ex: João & Ana',
-    demoNames: ['Carlos & Bruna','Pedro & Camila','Lucas & Júlia','Rafael & Larissa','André & Fernanda','Felipe & Beatriz','Thiago & Marcela','Diego & Isabela','Bruno & Letícia','Caio & Natália','Enzo & Vitória','Rodrigo & Rebeca']
+    demoNames: ['Carlos & Bruna','Pedro & Camila','Lucas & Júlia','Rafael & Larissa','André & Fernanda','Felipe & Beatriz','Thiago & Marcela','Diego & Isabela','Bruno & Letícia','Caio & Natália','Enzo & Vitória','Rodrigo & Rebeca'],
+    demoNamesF: ['Ana & Carla','Mariana & Beatriz','Júlia & Vitória','Camila & Larissa','Fernanda & Bruna','Isabela & Letícia','Amanda & Paula','Carolina & Rafaela','Tatiana & Daniela','Juliana & Vanessa','Gabriela & Helena','Renata & Patrícia']
   },
   {
     id: 'mistas',
     label: 'Mistas',
-    description: 'Formato misto masculino\ne feminino em rodízio',
+    description: 'Super 8 Mistas Individual\n8 Homens + 8 Mulheres',
     icon: '🔀',
     gradient: 'linear-gradient(135deg, #ff3366 0%, #9b2dca 100%)',
     borderColor: 'rgba(255, 51, 102, 0.5)',
     color: '#ff3366',
     playerLabel: 'Atleta',
     playerPlaceholder: 'Nome do Atleta',
-    demoNames: ['João Silva','Ana Lima','Pedro Costa','Carla Souza','Lucas Ramos','Mariana Rocha','Felipe Martins','Beatriz Alves','Rafael Santos','Júlia Ferreira','Bruno Carvalho','Vitória Cruz']
+    singleFormat: 'super8mistas',   // pula grid de formato
+    demoNamesM: ['João Silva','Pedro Costa','Lucas Ramos','Felipe Martins','Rafael Santos','Bruno Carvalho','Thiago Lima','André Rocha'],
+    demoNamesF: ['Ana Lima','Carla Souza','Mariana Rocha','Beatriz Alves','Júlia Ferreira','Vitória Cruz','Camila Dias','Larissa Neves']
   }
 ];
 
-window.TournamentConfig = { TOURNAMENT_FORMATS, CATEGORIES };
+window.TournamentConfig = { TOURNAMENT_FORMATS, CATEGORY_FORMATS, CATEGORIES };

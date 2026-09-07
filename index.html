@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Gerenciador completo de Torneios Super Beach Tennis. Categorias Individual, Duplas Fixas e Mistas. Formatos Super 5 ao Super 12 com rodizio automatico e classificacao em tempo real.">
-  <title>Super Beach Tennis - Gerenciador de Torneios</title>
+  <meta name="description" content="SUPER BT · DB Eventos - Gerenciamento de Torneios de Beach Tennis com rodízio automático e classificação em tempo real.">
+  <title>SUPER BT · DB Eventos - Gerenciamento de Torneios</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="src/css/style.css">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='46' fill='%23ff9f1c'/><path d='M30 50 Q50 20 70 50 Q50 80 30 50' stroke='%23ffffff' stroke-width='6' fill='none'/></svg>">
+  <link rel="icon" href="src/assets/db-eventos-logo.jpg">
 </head>
 <body>
 
@@ -21,22 +21,25 @@
 
     <div class="sel-container">
       <div class="sel-brand">
-        <div class="sel-logo-icon">🎾</div>
+        <div class="sel-logo-wrap">
+          <img src="src/assets/db-eventos-logo.jpg" alt="DB Eventos - Gerenciamento de Torneios" class="sel-brand-img" />
+        </div>
         <div class="sel-brand-text">
-          <h1 class="sel-app-title">SUPER <span class="sel-highlight">BEACH</span> TENNIS</h1>
-          <p class="sel-app-subtitle">Tournament Manager &middot; Gerenciador de Torneios</p>
+          <h1 class="sel-app-title">SUPER <span class="sel-highlight">BT</span></h1>
+          <p class="sel-app-subtitle">DB Eventos - Gerenciamento de Torneios</p>
         </div>
       </div>
 
-      <!-- Banner de Torneio Ativo / Continuar -->
-      <div id="sel-active-banner" class="sel-active-banner sel-hidden">
-        <div class="sel-active-info">
-          <span class="sel-active-badge">🎾 Torneio Ativo</span>
-          <span class="sel-active-text" id="sel-active-text">Super 8 &middot; Individual</span>
+      <!-- Seção de Torneios Ativos / Em Andamento -->
+      <div id="sel-active-tournaments-section" class="sel-active-tournaments-section sel-hidden">
+        <div class="sel-active-section-header">
+          <div class="sel-active-title-group">
+            <span class="sel-step-chip active-chip">🎾 Em Andamento</span>
+            <h2 class="sel-step-title">Torneios Ativos</h2>
+          </div>
+          <button type="button" id="btn-create-another-tournament" class="btn btn-secondary btn-sm">+ Novo Torneio</button>
         </div>
-        <button type="button" id="btn-resume-tournament" class="btn btn-secondary">
-          Continuar Torneio &rarr;
-        </button>
+        <div class="active-tournaments-grid" id="active-tournaments-grid"></div>
       </div>
 
       <div class="sel-block" id="step-category">
@@ -55,6 +58,49 @@
         <div class="sel-format-grid" id="format-grid"></div>
       </div>
 
+      <div class="sel-block sel-hidden" id="step-config">
+        <div class="sel-step-header">
+          <span class="sel-step-chip sel-chip-active">Passo 3</span>
+          <h2 class="sel-step-title">Título &amp; Gênero da Disputa</h2>
+        </div>
+        <div class="tournament-config-card">
+          <div class="form-group-custom">
+            <label class="form-label-custom" for="input-tournament-title">
+              Título do Torneio <span class="required-star">*</span>
+            </label>
+            <input 
+              type="text" 
+              id="input-tournament-title" 
+              class="input-custom" 
+              placeholder="Ex: Super 8 de Sexta, Arena BT Cup, Torneio Verão..." 
+              maxlength="45"
+              required 
+            />
+            <span class="input-hint-error" id="title-error-msg" style="display:none;">
+              ⚠️ O título do torneio é obrigatório para continuar.
+            </span>
+          </div>
+
+          <div class="form-group-custom">
+            <label class="form-label-custom">Gênero da Disputa <span class="required-star">*</span></label>
+            <div class="gender-selector-grid" id="gender-selector-grid">
+              <button type="button" class="gender-btn-option active" data-gender="masculino">
+                <span class="gender-btn-icon">👨</span>
+                <span class="gender-btn-text">Masculino</span>
+              </button>
+              <button type="button" class="gender-btn-option" data-gender="feminino">
+                <span class="gender-btn-icon">👩</span>
+                <span class="gender-btn-text">Feminino</span>
+              </button>
+              <button type="button" class="gender-btn-option" data-gender="misto">
+                <span class="gender-btn-icon">🔀</span>
+                <span class="gender-btn-text">Misto</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="sel-cta sel-hidden" id="sel-cta">
         <div class="sel-summary-card" id="sel-summary-card"></div>
         <button id="btn-proceed-setup" class="btn btn-primary btn-xl">
@@ -69,18 +115,26 @@
 
     <header class="app-header">
       <div class="header-container">
-        <button id="btn-back-selection" type="button" class="btn btn-ghost">← Categorias</button>
+        <button id="btn-back-selection" type="button" class="btn btn-ghost" title="Voltar para a lista e seleção de torneios">← Torneios</button>
         <div class="logo-area">
-          <div class="logo-icon">🎾</div>
+          <img src="src/assets/db-eventos-logo.jpg" alt="DB Eventos" class="header-logo-img" />
           <div>
-            <h1 class="app-title" id="app-title-dyn">SUPER <span>BEACH</span></h1>
-            <p class="app-subtitle" id="app-subtitle-dyn">Beach Tennis Tournament</p>
+            <h1 class="app-title" id="app-title-dyn">SUPER <span>BT</span></h1>
+            <p class="app-subtitle" id="app-subtitle-dyn">DB Eventos - Gerenciamento de Torneios</p>
           </div>
         </div>
+
+        <!-- Seletor de Torneio Ativo no Header -->
+        <div class="tournament-switcher-wrap" id="tournament-switcher-wrap">
+          <span class="switcher-icon">🔀</span>
+          <select id="select-tournament-switcher" class="tournament-switcher-select" title="Alternar entre torneios ativos"></select>
+          <button id="btn-header-new-tournament" type="button" class="btn btn-accent-sm" title="Criar outro torneio">+ Novo</button>
+        </div>
+
         <div class="header-actions">
           <button id="btn-tv-mode" class="btn btn-secondary"><span class="btn-icon">📺</span> Modo TV</button>
           <button id="btn-share-results" class="btn btn-secondary"><span class="btn-icon">📲</span> Compartilhar</button>
-          <button id="btn-reset-tournament" class="btn btn-danger-outline"><span class="btn-icon">🔄</span> Reiniciar</button>
+          <button id="btn-cancel-tournament" class="btn btn-danger-outline" title="Cancelar ou Excluir Torneio"><span class="btn-icon">🗑️</span> Excluir</button>
         </div>
       </div>
       <nav class="main-tabs">
@@ -106,7 +160,12 @@
               <span class="info-icon">ℹ️</span>
               <span id="setup-info-text">Aguardando informações do formato...</span>
             </div>
-            <button id="btn-start-tournament" class="btn btn-primary btn-large">🚀 Gerar Tabela &amp; Iniciar Torneio</button>
+            <div class="setup-actions">
+              <button type="button" id="btn-cancel-setup" class="btn btn-danger-outline btn-large" title="Cancelar este Torneio">
+                <span class="btn-icon">❌</span> Cancelar Torneio
+              </button>
+              <button id="btn-start-tournament" class="btn btn-primary btn-large">🚀 Gerar Tabela &amp; Iniciar Torneio</button>
+            </div>
           </div>
         </div>
       </section>
@@ -127,29 +186,95 @@
       </section>
 
       <section id="tab-leaderboard" class="tab-pane">
-        <div class="podium-wrapper" id="podium-container"></div>
-        <div class="card table-card">
-          <div class="card-header">
-            <h2 class="section-title" id="leaderboard-title">Classificação Geral</h2>
-            <span class="badge-accent">Vitórias &gt; Saldo de Games &gt; Games Pró</span>
+        <!-- Classificação Única (Individual e Duplas Fixas) -->
+        <div id="leaderboard-single">
+          <div class="podium-wrapper" id="podium-container"></div>
+          <div class="card table-card">
+            <div class="card-header">
+              <h2 class="section-title" id="leaderboard-title">Classificação Geral</h2>
+              <span class="badge-accent">Vitórias &gt; Saldo de Games &gt; Games Pró</span>
+            </div>
+            <div class="table-responsive">
+              <table class="leaderboard-table">
+                <thead>
+                  <tr>
+                    <th class="text-center">#</th>
+                    <th id="leaderboard-col-player">Atleta</th>
+                    <th class="text-center" title="Partidas Jogadas">PJ</th>
+                    <th class="text-center" title="Vitórias">V</th>
+                    <th class="text-center" title="Derrotas">D</th>
+                    <th class="text-center" title="Games Pró">GP</th>
+                    <th class="text-center" title="Games Contra">GC</th>
+                    <th class="text-center" title="Saldo de Games">SG</th>
+                    <th class="text-center" title="% Aproveitamento">%</th>
+                  </tr>
+                </thead>
+                <tbody id="leaderboard-body"></tbody>
+              </table>
+            </div>
           </div>
-          <div class="table-responsive">
-            <table class="leaderboard-table">
-              <thead>
-                <tr>
-                  <th class="text-center">#</th>
-                  <th id="leaderboard-col-player">Atleta</th>
-                  <th class="text-center" title="Partidas Jogadas">PJ</th>
-                  <th class="text-center" title="Vitórias">V</th>
-                  <th class="text-center" title="Derrotas">D</th>
-                  <th class="text-center" title="Games Pró">GP</th>
-                  <th class="text-center" title="Games Contra">GC</th>
-                  <th class="text-center" title="Saldo de Games">SG</th>
-                  <th class="text-center" title="% Aproveitamento">%</th>
-                </tr>
-              </thead>
-              <tbody id="leaderboard-body"></tbody>
-            </table>
+        </div>
+
+        <!-- Classificação Dupla (Mistas: Homens e Mulheres) -->
+        <div id="leaderboard-dual" style="display: none;">
+          <div class="leaderboard-dual-grid">
+            <!-- Tabela Masculina -->
+            <div class="dual-column">
+              <div class="dual-column-header men-header">
+                <span class="gender-badge men">👨 Classificação Masculina</span>
+                <span class="badge-accent">8 Homens</span>
+              </div>
+              <div class="podium-wrapper podium-compact" id="podium-men"></div>
+              <div class="card table-card">
+                <div class="table-responsive">
+                  <table class="leaderboard-table">
+                    <thead>
+                      <tr>
+                        <th class="text-center">#</th>
+                        <th>Atleta</th>
+                        <th class="text-center" title="Partidas Jogadas">PJ</th>
+                        <th class="text-center" title="Vitórias">V</th>
+                        <th class="text-center" title="Derrotas">D</th>
+                        <th class="text-center" title="Games Pró">GP</th>
+                        <th class="text-center" title="Games Contra">GC</th>
+                        <th class="text-center" title="Saldo de Games">SG</th>
+                        <th class="text-center" title="% Aproveitamento">%</th>
+                      </tr>
+                    </thead>
+                    <tbody id="leaderboard-body-men"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tabela Feminina -->
+            <div class="dual-column">
+              <div class="dual-column-header women-header">
+                <span class="gender-badge women">👩 Classificação Feminina</span>
+                <span class="badge-accent">8 Mulheres</span>
+              </div>
+              <div class="podium-wrapper podium-compact" id="podium-women"></div>
+              <div class="card table-card">
+                <div class="table-responsive">
+                  <table class="leaderboard-table">
+                    <thead>
+                      <tr>
+                        <th class="text-center">#</th>
+                        <th>Atleta</th>
+                        <th class="text-center" title="Partidas Jogadas">PJ</th>
+                        <th class="text-center" title="Vitórias">V</th>
+                        <th class="text-center" title="Derrotas">D</th>
+                        <th class="text-center" title="Games Pró">GP</th>
+                        <th class="text-center" title="Games Contra">GC</th>
+                        <th class="text-center" title="Saldo de Games">SG</th>
+                        <th class="text-center" title="% Aproveitamento">%</th>
+                      </tr>
+                    </thead>
+                    <tbody id="leaderboard-body-women"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -170,6 +295,26 @@
       <div class="modal-footer">
         <button id="btn-copy-share" class="btn btn-primary">📋 Copiar</button>
         <button id="btn-open-whatsapp" class="btn btn-whatsapp">💬 WhatsApp</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Cancelar / Excluir Torneio -->
+  <div class="modal-overlay" id="modal-confirm-delete" style="display:none;">
+    <div class="modal-content modal-confirm-content">
+      <div class="modal-header">
+        <h3 class="modal-title text-danger">⚠️ Cancelar ou Excluir Torneio</h3>
+        <button class="btn-close" id="btn-close-delete-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-warning-text">Deseja realmente cancelar e excluir este torneio?</p>
+        <p class="modal-warning-subtext">
+          Todos os participantes cadastrados, jogos, pontuações e a classificação serão apagados definitivamente. Esta ação não poderá ser desfeita.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="btn-abort-delete" class="btn btn-secondary">Não, Manter Torneio</button>
+        <button type="button" id="btn-execute-delete" class="btn btn-danger">🗑️ Sim, Excluir Torneio</button>
       </div>
     </div>
   </div>
