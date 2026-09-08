@@ -273,6 +273,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (e.key === "Escape") {
       closeDeleteModal();
       if (modalShare) modalShare.style.display = "none";
+      ui.closeMatchupModal();
     }
   });
 

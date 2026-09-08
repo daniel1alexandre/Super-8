@@ -154,33 +154,34 @@ function generateDuplasFixasRoundRobin(teams) {
  * duplas mistas rotacionam a cada rodada.
  */
 function generateMixedIndividualMatches(men, women) {
-  const menPositions = generateBergerPositions(men.length); // 7 rodadas, 4 confrontos por rodada
+  const menPositions = generateBergerPositions(men.length);
+  const womenPositions = generateBergerPositions(women.length);
   const numRounds = menPositions.length;
   const rounds = [];
 
+  // Ordem balanceada de rodadas e inversões para garantir que cada homem enfrente
+  // cada outro homem 1x, cada mulher enfrente cada outra mulher 1x, e parceiros 100% únicos
+  const womenRoundOrder = [0, 2, 4, 6, 1, 3, 5];
+  const roundFlips = [0, 1, 1, 1, 1, 1, 1];
+
   for (let r = 0; r < numRounds; r++) {
-    const mPairs = menPositions[r]; // pares de índices de homens para cada quadra
+    const mPairs = menPositions[r];
+    const wPairs = womenPositions[womenRoundOrder[r]];
+    const flipMask = roundFlips[r];
     const matches = [];
 
     for (let k = 0; k < mPairs.length; k++) {
       const idxManA = mPairs[k][0];
       const idxManB = mPairs[k][1];
-
-      // A cada rodada r, a parceira do Homem i é a Mulher (i + r) % 8.
-      // Isso garante parceiras 100% diferentes a cada rodada (sem repetição).
-      const idxWomanA = (idxManA + r) % women.length;
-      const idxWomanB = (idxManB + r) % women.length;
-
-      const man_a   = men[idxManA];
-      const woman_a = women[idxWomanA];
-      const man_b   = men[idxManB];
-      const woman_b = women[idxWomanB];
+      const flip = (flipMask >> k) & 1;
+      const idxWomanA = flip ? wPairs[k][1] : wPairs[k][0];
+      const idxWomanB = flip ? wPairs[k][0] : wPairs[k][1];
 
       matches.push({
         id: 'R' + (r + 1) + '-M' + (k + 1),
         court: 'Quadra ' + (k + 1),
-        teamA: [man_a, woman_a],   // Dupla Mista A (Homem A + Mulher A)
-        teamB: [man_b, woman_b],   // Dupla Mista B (Homem B + Mulher B)
+        teamA: [men[idxManA], women[idxWomanA]],
+        teamB: [men[idxManB], women[idxWomanB]],
         scoreA: 0, scoreB: 0,
         finished: false, isEditing: false, isByeMatch: false,
         isMixed: true

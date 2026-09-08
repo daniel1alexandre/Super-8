@@ -339,6 +339,161 @@ class TournamentStateManager {
     }
     return { completed, total };
   }
+
+  /* ── Relatório de Confrontos Diretos (Head-to-Head) ── */
+  getHeadToHeadReport(filterGender = null) {
+    const active = this.getActiveTournament();
+    if (!active || !active.players || !active.players.length) {
+      return {
+        players: [],
+        matrix: {},
+        summary: { totalPlayers: 0, totalMatches: 0, completedMatches: 0, pendingMatches: 0 },
+        perPlayer: []
+      };
+    }
+
+    let players = [...active.players];
+    if (filterGender && (filterGender === 'm' || filterGender === 'f')) {
+      players = players.filter(p => p.gender === filterGender);
+    }
+
+    // Inicializa matriz N x N
+    const matrix = {};
+    players.forEach(pA => {
+      matrix[pA.id] = {};
+      players.forEach(pB => {
+        if (pA.id === pB.id) {
+          matrix[pA.id][pB.id] = { isSelf: true };
+        } else {
+          matrix[pA.id][pB.id] = {
+            playerA: pA,
+            playerB: pB,
+            totalScheduled: 0,
+            playedCount: 0,
+            pendingCount: 0,
+            winsA: 0,
+            winsB: 0,
+            matches: []
+          };
+        }
+      });
+    });
+
+    if (active.rounds && active.rounds.length) {
+      active.rounds.forEach(round => {
+        round.matches.forEach(match => {
+          if (match.isByeMatch) return;
+          const sA = match.scoreA || 0;
+          const sB = match.scoreB || 0;
+          const isFinished = !!match.finished;
+
+          const teamA = match.teamA || [];
+          const teamB = match.teamB || [];
+
+          teamA.forEach(pA => {
+            teamB.forEach(pB => {
+              const partnerA = teamA.find(p => p.id !== pA.id) || null;
+              const partnerB = teamB.find(p => p.id !== pB.id) || null;
+
+              if (matrix[pA.id] && matrix[pA.id][pB.id]) {
+                const cellAB = matrix[pA.id][pB.id];
+                cellAB.totalScheduled++;
+                if (isFinished) {
+                  cellAB.playedCount++;
+                  if (sA > sB) cellAB.winsA++;
+                  else if (sB > sA) cellAB.winsB++;
+                } else {
+                  cellAB.pendingCount++;
+                }
+                cellAB.matches.push({
+                  roundNumber: round.round,
+                  court: match.court,
+                  matchId: match.id,
+                  partnerA: partnerA ? partnerA.name : null,
+                  partnerB: partnerB ? partnerB.name : null,
+                  scoreA: sA,
+                  scoreB: sB,
+                  finished: isFinished,
+                  winner: isFinished ? (sA > sB ? 'A' : sB > sA ? 'B' : 'draw') : null
+                });
+              }
+
+              if (matrix[pB.id] && matrix[pB.id][pA.id]) {
+                const cellBA = matrix[pB.id][pA.id];
+                cellBA.totalScheduled++;
+                if (isFinished) {
+                  cellBA.playedCount++;
+                  if (sB > sA) cellBA.winsA++;
+                  else if (sA > sB) cellBA.winsB++;
+                } else {
+                  cellBA.pendingCount++;
+                }
+                cellBA.matches.push({
+                  roundNumber: round.round,
+                  court: match.court,
+                  matchId: match.id,
+                  partnerA: partnerB ? partnerB.name : null,
+                  partnerB: partnerA ? partnerA.name : null,
+                  scoreA: sB,
+                  scoreB: sA,
+                  finished: isFinished,
+                  winner: isFinished ? (sB > sA ? 'A' : sA > sB ? 'B' : 'draw') : null
+                });
+              }
+            });
+          });
+        });
+      });
+    }
+
+    const perPlayer = players.map(p => {
+      const opponents = [];
+      let totalSched = 0;
+      let playedTot = 0;
+      let pendingTot = 0;
+
+      players.forEach(opp => {
+        if (opp.id === p.id) return;
+        const cell = matrix[p.id][opp.id];
+        if (!cell) return;
+        totalSched += cell.totalScheduled;
+        playedTot += cell.playedCount;
+        pendingTot += cell.pendingCount;
+
+        opponents.push({
+          opponent: opp,
+          totalScheduled: cell.totalScheduled,
+          playedCount: cell.playedCount,
+          pendingCount: cell.pendingCount,
+          wins: cell.winsA,
+          losses: cell.winsB,
+          matches: cell.matches
+        });
+      });
+
+      return {
+        player: p,
+        totalScheduled: totalSched,
+        playedCount: playedTot,
+        pendingCount: pendingTot,
+        opponents
+      };
+    });
+
+    const { total, completed } = this.getCompletedMatchesCount();
+
+    return {
+      players,
+      matrix,
+      summary: {
+        totalPlayers: players.length,
+        totalMatches: total,
+        completedMatches: completed,
+        pendingMatches: Math.max(0, total - completed)
+      },
+      perPlayer
+    };
+  }
 }
 
 window.TournamentStateManager = TournamentStateManager;

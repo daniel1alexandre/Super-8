@@ -141,6 +141,7 @@
         <button class="tab-btn active" data-tab="setup"><span class="tab-icon">👥</span> Participantes</button>
         <button class="tab-btn" data-tab="matches"><span class="tab-icon">⚔️</span> Rodadas &amp; Jogos <span class="badge" id="badge-completed-matches">0/0</span></button>
         <button class="tab-btn" data-tab="leaderboard"><span class="tab-icon">🏆</span> Classificação</button>
+        <button class="tab-btn" data-tab="matchups"><span class="tab-icon">🤼</span> Confrontos</button>
       </nav>
     </header>
 
@@ -312,6 +313,102 @@
           </div>
         </div>
       </section>
+
+      <!-- ABA CONFRONTOS (RELATÓRIO QUANTO VAI JOGAR / JÁ JOGOU) -->
+      <section id="tab-matchups" class="tab-pane">
+        <!-- Banner / Resumo de Métricas -->
+        <div class="matchups-summary-card">
+          <div class="matchups-header-info">
+            <h2 class="section-title">🤼 Relatório de Confrontos Diretos</h2>
+            <p class="section-desc">
+              Acompanhe quantas vezes cada atleta vai jogar (programadas) e já jogou (finalizadas) contra os demais adversários.
+            </p>
+          </div>
+          <div class="matchups-metrics-grid">
+            <div class="matchup-metric-item">
+              <span class="m-metric-icon">👥</span>
+              <div class="m-metric-data">
+                <span class="m-metric-val" id="m-metric-players">0</span>
+                <span class="m-metric-lbl">Atletas</span>
+              </div>
+            </div>
+            <div class="matchup-metric-item">
+              <span class="m-metric-icon">⚔️</span>
+              <div class="m-metric-data">
+                <span class="m-metric-val" id="m-metric-total">0</span>
+                <span class="m-metric-lbl">Total de Jogos</span>
+              </div>
+            </div>
+            <div class="matchup-metric-item highlight-done">
+              <span class="m-metric-icon">✅</span>
+              <div class="m-metric-data">
+                <span class="m-metric-val" id="m-metric-completed">0</span>
+                <span class="m-metric-lbl">Já Jogados</span>
+              </div>
+            </div>
+            <div class="matchup-metric-item highlight-pending">
+              <span class="m-metric-icon">⏳</span>
+              <div class="m-metric-data">
+                <span class="m-metric-val" id="m-metric-pending">0</span>
+                <span class="m-metric-lbl">A Disputar</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Barra de Ferramentas / Alternador de Visão e Filtros -->
+        <div class="matchups-toolbar">
+          <div class="matchups-view-switch">
+            <button type="button" class="btn-matchups-view active" id="btn-view-matrix" data-view="matrix">
+              📊 Matriz Cruzada
+            </button>
+            <button type="button" class="btn-matchups-view" id="btn-view-player" data-view="player">
+              👤 Por Atleta
+            </button>
+          </div>
+
+          <!-- Filtro de gênero (visível quando categoria é mistas) -->
+          <div class="matchups-gender-filter sel-hidden" id="matchups-gender-filter">
+            <button type="button" class="btn-matchups-gender active" data-gender="all">👥 Todos</button>
+            <button type="button" class="btn-matchups-gender" data-gender="m">👨 Homens</button>
+            <button type="button" class="btn-matchups-gender" data-gender="f">👩 Mulheres</button>
+          </div>
+
+          <!-- Busca por Atleta -->
+          <div class="matchups-search-wrap">
+            <input type="text" id="input-search-matchups" class="input-matchups-search" placeholder="🔍 Filtrar por atleta..." />
+          </div>
+        </div>
+
+        <!-- Mensagem de Torneio Não Iniciado -->
+        <div id="matchups-not-started-msg" class="matchups-empty-state sel-hidden">
+          <div class="empty-state-icon">🎾</div>
+          <h3>Torneio Ainda Não Iniciado</h3>
+          <p>Cadastre os atletas na aba <strong>Participantes</strong> e clique em <em>Iniciar Torneio</em> para gerar o relatório de confrontos.</p>
+        </div>
+
+        <!-- Visão 1: Matriz Cruzada -->
+        <div id="matchups-matrix-view">
+          <div class="card table-card matchups-card">
+            <div class="matchups-matrix-legend">
+              <span class="legend-item"><span class="legend-box box-completed"></span> Já Jogou (100% Finalizado)</span>
+              <span class="legend-item"><span class="legend-box box-partial"></span> Parcialmente Jogado</span>
+              <span class="legend-item"><span class="legend-box box-pending"></span> Vai Jogar (A Disputar)</span>
+              <span class="legend-item"><span class="legend-box box-self"></span> Mesmo Atleta</span>
+            </div>
+            <div class="table-responsive matchups-table-wrap" id="matchups-matrix-table-wrap">
+              <!-- Matriz injetada via JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Visão 2: Por Atleta (Cards Individuais) -->
+        <div id="matchups-player-view" class="sel-hidden">
+          <div class="matchups-player-grid" id="matchups-player-grid">
+            <!-- Cards de atletas injetados via JS -->
+          </div>
+        </div>
+      </section>
     </main>
   </div>
 
@@ -329,6 +426,22 @@
       <div class="modal-footer">
         <button id="btn-copy-share" class="btn btn-primary">📋 Copiar</button>
         <button id="btn-open-whatsapp" class="btn btn-whatsapp">💬 WhatsApp</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Detalhes do Confronto -->
+  <div class="modal-overlay" id="modal-matchup-details" style="display:none;">
+    <div class="modal-content modal-matchup-content">
+      <div class="modal-header">
+        <h3 class="modal-title" id="matchup-modal-title">⚔️ Detalhes do Confronto</h3>
+        <button class="btn-close" id="btn-close-matchup-modal">&times;</button>
+      </div>
+      <div class="modal-body" id="matchup-modal-body">
+        <!-- Detalhes do confronto injetados via JS -->
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="btn-dismiss-matchup-modal" class="btn btn-secondary">Fechar</button>
       </div>
     </div>
   </div>

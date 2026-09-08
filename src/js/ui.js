@@ -8,6 +8,9 @@ class TournamentUI {
     this._selectedFormat = null;
     this._selectedGender = 'masculino';
     this._roundsViewMode = 'single';
+    this._matchupsViewMode = 'matrix';
+    this._matchupsGenderFilter = 'all';
+    this._matchupsSearchQuery = '';
   }
 
   /* ─── TELAS PRINCIPAIS ─────────────────────────────── */
@@ -204,6 +207,7 @@ class TournamentUI {
 
   init() {
     this.initRoundsModeToggle();
+    this.initMatchupsEvents();
     const active = this.sm.getActiveTournament();
     if (!active || active.phase === 'selection') {
       this.goToSelection();
@@ -394,6 +398,7 @@ class TournamentUI {
       pane.classList.toggle('active', pane.id === 'tab-' + tabId));
     if (tabId === 'leaderboard') this.renderLeaderboard();
     if (tabId === 'matches') this.renderMatches();
+    if (tabId === 'matchups') this.renderMatchups();
   }
 
   updateAppHeader() {
@@ -830,6 +835,7 @@ class TournamentUI {
           const inpB = card.querySelector('#inp-b-' + match.id);
           this.sm.saveMatchResult(currentRound, match.id, parseInt(inpA.value) || 0, parseInt(inpB.value) || 0);
           this.renderMatches(); this.renderLeaderboard(); this.renderRoundsNav(); this.updateHeaderProgress();
+          this._refreshMatchupsIfActive();
         });
       }
 
@@ -1019,6 +1025,404 @@ class TournamentUI {
 
     text += '\n⚡ Gerado pelo Super Beach Tennis Tournament App';
     return text;
+  }
+
+  _refreshMatchupsIfActive() {
+    const pane = document.getElementById('tab-matchups');
+    if (pane && pane.classList.contains('active')) {
+      this.renderMatchups();
+    }
+  }
+
+  /* ─── ABA CONFRONTOS (HEAD-TO-HEAD) ────────────────── */
+
+  initMatchupsEvents() {
+    if (this._matchupsEventsDone) return;
+    this._matchupsEventsDone = true;
+
+    // Alternador de Visualização (Matriz vs Por Atleta)
+    document.querySelectorAll('.btn-matchups-view').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.btn-matchups-view').forEach(b => b.classList.remove('active'));
+        e.currentTarget.classList.add('active');
+        this._matchupsViewMode = e.currentTarget.dataset.view;
+        this.renderMatchups();
+      });
+    });
+
+    // Filtro de Gênero (em torneios Mistas)
+    document.querySelectorAll('.btn-matchups-gender').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.btn-matchups-gender').forEach(b => b.classList.remove('active'));
+        e.currentTarget.classList.add('active');
+        this._matchupsGenderFilter = e.currentTarget.dataset.gender;
+        this.renderMatchups();
+      });
+    });
+
+    // Busca Rápida por Atleta
+    const searchInp = document.getElementById('input-search-matchups');
+    if (searchInp) {
+      searchInp.addEventListener('input', (e) => {
+        this._matchupsSearchQuery = e.target.value.trim().toLowerCase();
+        this.renderMatchups();
+      });
+    }
+
+    // Modal de Detalhes do Confronto
+    const modal = document.getElementById('modal-matchup-details');
+    const btnClose = document.getElementById('btn-close-matchup-modal');
+    const btnDismiss = document.getElementById('btn-dismiss-matchup-modal');
+    if (btnClose) btnClose.addEventListener('click', () => this.closeMatchupModal());
+    if (btnDismiss) btnDismiss.addEventListener('click', () => this.closeMatchupModal());
+    if (modal) {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) this.closeMatchupModal();
+      });
+    }
+  }
+
+  renderMatchups() {
+    const active = this.sm.getActiveTournament();
+    const notStartedMsg = document.getElementById('matchups-not-started-msg');
+    const matrixView    = document.getElementById('matchups-matrix-view');
+    const playerView    = document.getElementById('matchups-player-view');
+    const genderFilter  = document.getElementById('matchups-gender-filter');
+
+    if (!active || !active.started || !active.rounds || !active.rounds.length) {
+      if (notStartedMsg) notStartedMsg.classList.remove('sel-hidden');
+      if (matrixView) matrixView.classList.add('sel-hidden');
+      if (playerView) playerView.classList.add('sel-hidden');
+      if (genderFilter) genderFilter.classList.add('sel-hidden');
+      this._updateMatchupMetrics({
+        totalPlayers: (active && active.players) ? active.players.length : 0,
+        totalMatches: 0,
+        completedMatches: 0,
+        pendingMatches: 0
+      });
+      return;
+    }
+
+    if (notStartedMsg) notStartedMsg.classList.add('sel-hidden');
+
+    const isMixed = active.category === 'mistas';
+    if (genderFilter) {
+      genderFilter.classList.toggle('sel-hidden', !isMixed);
+    }
+
+    // Filtro de gênero se aplicável
+    const filterGen = isMixed && (this._matchupsGenderFilter === 'm' || this._matchupsGenderFilter === 'f')
+      ? this._matchupsGenderFilter
+      : null;
+    const report = this.sm.getHeadToHeadReport(filterGen);
+
+    this._updateMatchupMetrics(report.summary);
+
+    if (this._matchupsViewMode === 'matrix') {
+      if (matrixView) matrixView.classList.remove('sel-hidden');
+      if (playerView) playerView.classList.add('sel-hidden');
+      this._renderMatchupsMatrix(report, active);
+    } else {
+      if (matrixView) matrixView.classList.add('sel-hidden');
+      if (playerView) playerView.classList.remove('sel-hidden');
+      this._renderMatchupsPerPlayer(report, active);
+    }
+  }
+
+  _updateMatchupMetrics(summary) {
+    const elPlayers   = document.getElementById('m-metric-players');
+    const elTotal     = document.getElementById('m-metric-total');
+    const elCompleted = document.getElementById('m-metric-completed');
+    const elPending   = document.getElementById('m-metric-pending');
+
+    if (elPlayers)   elPlayers.textContent   = summary.totalPlayers || 0;
+    if (elTotal)     elTotal.textContent     = summary.totalMatches || 0;
+    if (elCompleted) elCompleted.textContent = summary.completedMatches || 0;
+    if (elPending)   elPending.textContent   = summary.pendingMatches || 0;
+  }
+
+  _renderMatchupsMatrix(report, active) {
+    const wrap = document.getElementById('matchups-matrix-table-wrap');
+    if (!wrap) return;
+
+    const players = report.players;
+    const q = this._matchupsSearchQuery;
+
+    let html = '<table class="matchups-matrix-table" id="matrix-table">';
+    html += '<thead><tr>';
+    html += '<th class="matrix-corner-cell"><div class="corner-label"><span>Atleta</span><span class="vs-text">&times;</span><span>Adversário</span></div></th>';
+
+    players.forEach(p => {
+      const gIcon = p.gender === 'm' ? '👨 ' : p.gender === 'f' ? '👩 ' : '';
+      const isHighlighted = q && p.name.toLowerCase().includes(q);
+      html += '<th class="matrix-col-header' + (isHighlighted ? ' search-highlight' : '') + '" title="' + p.name + '" data-player-id="' + p.id + '">' +
+                '<div class="matrix-header-chip">' + gIcon + p.name + '</div>' +
+              '</th>';
+    });
+    html += '</tr></thead>';
+
+    html += '<tbody>';
+    players.forEach(pRow => {
+      const gIcon = pRow.gender === 'm' ? '👨 ' : pRow.gender === 'f' ? '👩 ' : '';
+      const isRowHighlighted = q && pRow.name.toLowerCase().includes(q);
+
+      html += '<tr class="matrix-row' + (isRowHighlighted ? ' search-highlight-row' : '') + '" data-player-id="' + pRow.id + '">';
+      html += '<th class="matrix-row-header' + (isRowHighlighted ? ' search-highlight' : '') + '" title="' + pRow.name + '" data-player-id="' + pRow.id + '">' +
+                '<div class="matrix-header-chip">' + gIcon + pRow.name + '</div>' +
+              '</th>';
+
+      players.forEach(pCol => {
+        if (pRow.id === pCol.id) {
+          html += '<td class="matrix-cell cell-self" title="Mesmo atleta"><span class="cell-dash">&mdash;</span></td>';
+        } else {
+          const cell = (report.matrix[pRow.id] && report.matrix[pRow.id][pCol.id]) ? report.matrix[pRow.id][pCol.id] : null;
+          if (!cell || cell.totalScheduled === 0) {
+            html += '<td class="matrix-cell cell-none" title="Não se enfrentam neste torneio"><span class="cell-zero">0x</span></td>';
+          } else {
+            let statusClass = 'status-pending';
+            let statusLabel = cell.totalScheduled + ' a disputar';
+            let icon = '⏳';
+
+            if (cell.playedCount === cell.totalScheduled && cell.totalScheduled > 0) {
+              statusClass = 'status-completed';
+              statusLabel = cell.playedCount + ' jogados';
+              icon = '✓';
+            } else if (cell.playedCount > 0) {
+              statusClass = 'status-partial';
+              statusLabel = cell.playedCount + '/' + cell.totalScheduled + ' jogados';
+              icon = '⚡';
+            }
+
+            const winStr = cell.playedCount > 0 ? (cell.winsA + 'V - ' + cell.winsB + 'D') : '';
+
+            html += '<td class="matrix-cell ' + statusClass + '" data-player-a="' + pRow.id + '" data-player-b="' + pCol.id + '" title="Clique para ver o histórico detalhado">';
+            html += '<div class="cell-content-box">';
+            html +=   '<div class="cell-top-line">';
+            html +=     '<span class="cell-score-count">' + cell.playedCount + ' / ' + cell.totalScheduled + '</span>';
+            html +=     '<span class="cell-status-icon">' + icon + '</span>';
+            html +=   '</div>';
+            html +=   '<span class="cell-status-sub">' + statusLabel + '</span>';
+            if (winStr) {
+              html += '<span class="cell-win-sub">' + winStr + '</span>';
+            }
+            html += '</div>';
+            html += '</td>';
+          }
+        }
+      });
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+
+    wrap.innerHTML = html;
+
+    // Eventos de clique nas células para abrir o modal de detalhes
+    wrap.querySelectorAll('.matrix-cell[data-player-a]').forEach(td => {
+      td.addEventListener('click', (e) => {
+        const pAId = e.currentTarget.dataset.playerA;
+        const pBId = e.currentTarget.dataset.playerB;
+        const pA = report.players.find(p => p.id === pAId);
+        const pB = report.players.find(p => p.id === pBId);
+        const cellData = report.matrix[pAId][pBId];
+        if (pA && pB && cellData) {
+          this.openMatchupModal(pA, pB, cellData);
+        }
+      });
+    });
+  }
+
+  _renderMatchupsPerPlayer(report, active) {
+    const grid = document.getElementById('matchups-player-grid');
+    if (!grid) return;
+
+    let list = report.perPlayer;
+    const q = this._matchupsSearchQuery;
+    if (q) {
+      list = list.filter(item => item.player.name.toLowerCase().includes(q) ||
+        item.opponents.some(opp => opp.opponent.name.toLowerCase().includes(q)));
+    }
+
+    if (!list || list.length === 0) {
+      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:3rem 1rem;color:var(--text-secondary);">' +
+        '<h3>Nenhum atleta encontrado</h3><p>Tente ajustar o termo da busca.</p></div>';
+      return;
+    }
+
+    let html = '';
+    list.forEach(item => {
+      const p = item.player;
+      const gIcon = p.gender === 'm' ? '👨' : p.gender === 'f' ? '👩' : '🎾';
+      const gBadgeClass = p.gender === 'm' ? 'gender-badge men' : p.gender === 'f' ? 'gender-badge women' : 'badge-accent';
+
+      html += '<div class="matchup-player-card">';
+      html +=   '<div class="matchup-p-card-header">';
+      html +=     '<div class="matchup-p-avatar">' + gIcon + '</div>';
+      html +=     '<div class="matchup-p-info">';
+      html +=       '<h3 class="matchup-p-name">' + p.name + '</h3>';
+      html +=       '<div class="matchup-p-meta">';
+      html +=         '<span class="' + gBadgeClass + '">' + (p.gender === 'm' ? 'Masculino' : p.gender === 'f' ? 'Feminino' : 'Atleta') + '</span>';
+      html +=         '<span class="matchup-p-stat-chip">⚔️ ' + item.totalScheduled + ' confrontos programados</span>';
+      html +=         '<span class="matchup-p-stat-chip done">✅ ' + item.playedCount + ' jogados</span>';
+      html +=         '<span class="matchup-p-stat-chip pend">⏳ ' + item.pendingCount + ' a disputar</span>';
+      html +=       '</div>';
+      html +=     '</div>';
+      html +=   '</div>';
+
+      html +=   '<div class="matchup-opponents-list">';
+      html +=     '<h4 class="opponents-list-title">Adversários no Torneio:</h4>';
+
+      item.opponents.forEach(opp => {
+        const oppP = opp.opponent;
+        const oppGIcon = oppP.gender === 'm' ? '👨 ' : oppP.gender === 'f' ? '👩 ' : '';
+
+        let badgeClass = 'badge-pending';
+        let badgeText = '⏳ ' + opp.pendingCount + ' a disputar';
+        if (opp.playedCount === opp.totalScheduled && opp.totalScheduled > 0) {
+          badgeClass = 'badge-completed';
+          badgeText = '✓ ' + opp.playedCount + '/' + opp.totalScheduled + ' jogados';
+        } else if (opp.playedCount > 0) {
+          badgeClass = 'badge-partial';
+          badgeText = '⚡ ' + opp.playedCount + '/' + opp.totalScheduled + ' jogados (' + opp.pendingCount + ' faltam)';
+        }
+
+        html += '<div class="matchup-opp-row">';
+        html +=   '<div class="opp-main-col">';
+        html +=     '<span class="opp-name">' + oppGIcon + oppP.name + '</span>';
+        html +=     '<span class="opp-status-pill ' + badgeClass + '">' + badgeText + '</span>';
+        html +=     '<span class="opp-total-pill">' + opp.totalScheduled + 'x no total</span>';
+        html +=   '</div>';
+
+        html +=   '<div class="opp-matches-pills">';
+        if (opp.matches && opp.matches.length) {
+          opp.matches.forEach(m => {
+            if (m.finished) {
+              const won = m.winner === 'A';
+              const pClass = won ? 'pill-win' : (m.winner === 'B' ? 'pill-loss' : 'pill-draw');
+              const resText = won ? 'Vitória' : (m.winner === 'B' ? 'Derrota' : 'Empate');
+              html += '<span class="match-mini-pill ' + pClass + '" title="' + (m.court + ' · ' + (m.partnerA ? 'Parceiro: ' + m.partnerA : '') + ' vs ' + (m.partnerB ? oppP.name + ' + ' + m.partnerB : oppP.name)) + '">' +
+                        'R' + m.roundNumber + ': ' + m.scoreA + 'x' + m.scoreB + ' (' + resText + ')' +
+                      '</span>';
+            } else {
+              html += '<span class="match-mini-pill pill-wait" title="' + m.court + '">' +
+                        'R' + m.roundNumber + ': A disputar (' + m.court + ')' +
+                      '</span>';
+            }
+          });
+        }
+        html +=   '</div>';
+
+        html +=   '<button type="button" class="btn btn-sm btn-accent-sm btn-open-matchup-detail" data-player-a="' + p.id + '" data-player-b="' + oppP.id + '" title="Ver detalhes completos das partidas">';
+        html +=     '🔍 Detalhes';
+        html +=   '</button>';
+
+        html += '</div>';
+      });
+
+      html +=   '</div>';
+      html += '</div>';
+    });
+
+    grid.innerHTML = html;
+
+    // Vincular botões de detalhes
+    grid.querySelectorAll('.btn-open-matchup-detail').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const pAId = e.currentTarget.dataset.playerA;
+        const pBId = e.currentTarget.dataset.playerB;
+        const pA = report.players.find(p => p.id === pAId);
+        const pB = report.players.find(p => p.id === pBId);
+        const cellData = report.matrix[pAId][pBId];
+        if (pA && pB && cellData) {
+          this.openMatchupModal(pA, pB, cellData);
+        }
+      });
+    });
+  }
+
+  openMatchupModal(playerA, playerB, cellData) {
+    const modal = document.getElementById('modal-matchup-details');
+    const title = document.getElementById('matchup-modal-title');
+    const body  = document.getElementById('matchup-modal-body');
+    if (!modal || !body) return;
+
+    const gIconA = playerA.gender === 'm' ? '👨 ' : playerA.gender === 'f' ? '👩 ' : '';
+    const gIconB = playerB.gender === 'm' ? '👨 ' : playerB.gender === 'f' ? '👩 ' : '';
+
+    if (title) {
+      title.innerHTML = '⚔️ ' + gIconA + playerA.name + ' <span class="vs-text">&times;</span> ' + gIconB + playerB.name;
+    }
+
+    let bHtml = '';
+    bHtml += '<div class="matchup-modal-hero">';
+    bHtml +=   '<div class="matchup-hero-player player-left">';
+    bHtml +=     '<div class="hero-avatar">' + (playerA.gender === 'm' ? '👨' : playerA.gender === 'f' ? '👩' : '🎾') + '</div>';
+    bHtml +=     '<h4 class="hero-name">' + playerA.name + '</h4>';
+    bHtml +=     '<span class="hero-wins-badge">' + cellData.winsA + ' Vitórias</span>';
+    bHtml +=   '</div>';
+
+    bHtml +=   '<div class="matchup-hero-vs">';
+    bHtml +=     '<div class="hero-total-count">' + cellData.totalScheduled + 'x</div>';
+    bHtml +=     '<div class="hero-sublabel">Confrontos no Torneio</div>';
+    bHtml +=     '<div class="hero-status-pill">' + cellData.playedCount + ' Realizados &bull; ' + cellData.pendingCount + ' A Disputar</div>';
+    bHtml +=   '</div>';
+
+    bHtml +=   '<div class="matchup-hero-player player-right">';
+    bHtml +=     '<div class="hero-avatar">' + (playerB.gender === 'm' ? '👨' : playerB.gender === 'f' ? '👩' : '🎾') + '</div>';
+    bHtml +=     '<h4 class="hero-name">' + playerB.name + '</h4>';
+    bHtml +=     '<span class="hero-wins-badge">' + cellData.winsB + ' Vitórias</span>';
+    bHtml +=   '</div>';
+    bHtml += '</div>';
+
+    bHtml += '<div class="matchup-modal-matches-list">';
+    bHtml +=   '<h5 class="modal-matches-title">Histórico e Programação das Partidas:</h5>';
+
+    if (!cellData.matches || cellData.matches.length === 0) {
+      bHtml += '<p class="text-secondary text-center">Nenhuma partida registrada.</p>';
+    } else {
+      cellData.matches.forEach(m => {
+        const isFin = !!m.finished;
+        const wonA = isFin && m.winner === 'A';
+        const wonB = isFin && m.winner === 'B';
+        const statusText = isFin ? '✓ Finalizada' : '⏳ Aguardando Realização';
+        const statusClass = isFin ? 'concluida' : 'pendente';
+
+        const teamAName = playerA.name + (m.partnerA ? ' + ' + m.partnerA : '');
+        const teamBName = playerB.name + (m.partnerB ? ' + ' + m.partnerB : '');
+
+        bHtml += '<div class="modal-match-item ' + (isFin ? 'finished' : '') + '">';
+        bHtml +=   '<div class="modal-match-header">';
+        bHtml +=     '<span class="m-round-badge">Rodada ' + m.roundNumber + ' &bull; ' + m.court + '</span>';
+        bHtml +=     '<span class="m-status-badge ' + statusClass + '">' + statusText + '</span>';
+        bHtml +=   '</div>';
+
+        bHtml +=   '<div class="modal-match-teams-grid">';
+        bHtml +=     '<div class="m-team-side side-a ' + (wonA ? 'winner' : '') + '">';
+        bHtml +=       '<span class="m-team-name">' + teamAName + '</span>';
+        if (wonA) bHtml += '<span class="m-winner-crown">👑 Vencedor</span>';
+        bHtml +=     '</div>';
+
+        bHtml +=     '<div class="m-score-box ' + (isFin ? 'score-done' : 'score-waiting') + '">';
+        bHtml +=       '<span class="m-score-val">' + (isFin ? (m.scoreA + ' &times; ' + m.scoreB) : '— &times; —') + '</span>';
+        bHtml +=     '</div>';
+
+        bHtml +=     '<div class="m-team-side side-b ' + (wonB ? 'winner' : '') + '">';
+        bHtml +=       '<span class="m-team-name">' + teamBName + '</span>';
+        if (wonB) bHtml += '<span class="m-winner-crown">👑 Vencedor</span>';
+        bHtml +=     '</div>';
+        bHtml +=   '</div>';
+        bHtml += '</div>';
+      });
+    }
+
+    bHtml += '</div>';
+
+    body.innerHTML = bHtml;
+    modal.style.display = 'flex';
+  }
+
+  closeMatchupModal() {
+    const modal = document.getElementById('modal-matchup-details');
+    if (modal) modal.style.display = 'none';
   }
 }
 
