@@ -29,12 +29,167 @@ function generateBergerPositions(n) {
   return rounds;
 }
 
+/* ─── TABELAS DE CONFRONTOS ÓTIMOS (DISTRIBUIÇÃO MÍNIMA, ZERO ZEROS) ─── */
+const OPTIMAL_SCHEDULE_6 = [
+  { matches: [[[3,2],[4,5]]], byes: [0,1] },
+  { matches: [[[0,1],[5,4]]], byes: [2,3] },
+  { matches: [[[1,0],[2,3]]], byes: [4,5] },
+  { matches: [[[2,4],[3,5]]], byes: [0,1] },
+  { matches: [[[1,4],[0,5]]], byes: [2,3] }
+];
+
+const OPTIMAL_SCHEDULE_7 = [
+  { matches: [[[4,3],[5,6]]], byes: [0,1,2] },
+  { matches: [[[2,1],[0,6]]], byes: [3,4,5] },
+  { matches: [[[2,3],[4,5]]], byes: [6,0,1] },
+  { matches: [[[0,1],[5,6]]], byes: [2,3,4] },
+  { matches: [[[1,2],[3,4]]], byes: [5,6,0] },
+  { matches: [[[0,6],[5,4]]], byes: [1,2,3] },
+  { matches: [[[0,1],[2,3]]], byes: [4,5,6] }
+];
+
+const OPTIMAL_SCHEDULE_9 = [
+  { matches: [[[3,1],[4,7]],[[8,6],[2,5]]], byes: [0] },
+  { matches: [[[2,6],[3,7]],[[0,8],[5,4]]], byes: [1] },
+  { matches: [[[6,0],[1,4]],[[5,8],[3,7]]], byes: [2] },
+  { matches: [[[1,0],[8,7]],[[5,6],[4,2]]], byes: [3] },
+  { matches: [[[7,5],[6,3]],[[8,1],[2,0]]], byes: [4] },
+  { matches: [[[7,2],[4,0]],[[3,8],[1,6]]], byes: [5] },
+  { matches: [[[8,5],[4,7]],[[2,3],[1,0]]], byes: [6] },
+  { matches: [[[2,1],[4,5]],[[8,0],[3,6]]], byes: [7] },
+  { matches: [[[7,3],[4,2]],[[6,5],[0,1]]], byes: [8] }
+];
+
+const OPTIMAL_SCHEDULE_10 = [
+  { matches: [[[9,3],[8,7]],[[2,4],[5,6]]], byes: [0,1] },
+  { matches: [[[6,4],[7,0]],[[1,5],[8,9]]], byes: [2,3] },
+  { matches: [[[3,1],[0,6]],[[7,2],[9,8]]], byes: [4,5] },
+  { matches: [[[0,1],[8,5]],[[4,9],[2,3]]], byes: [6,7] },
+  { matches: [[[2,4],[1,0]],[[5,3],[6,7]]], byes: [8,9] },
+  { matches: [[[3,9],[5,4]],[[6,2],[8,7]]], byes: [0,1] },
+  { matches: [[[6,5],[4,1]],[[9,7],[8,0]]], byes: [2,3] },
+  { matches: [[[1,2],[3,7]],[[0,6],[9,8]]], byes: [4,5] },
+  { matches: [[[5,1],[2,0]],[[8,9],[3,4]]], byes: [6,7] }
+];
+
+const OPTIMAL_SCHEDULE_11 = [
+  { matches: [[[4,5],[8,9]],[[7,3],[10,6]]], byes: [0,1,2] },
+  { matches: [[[6,9],[10,1]],[[8,2],[0,7]]], byes: [3,4,5] },
+  { matches: [[[1,2],[4,3]],[[10,0],[5,9]]], byes: [6,7,8] },
+  { matches: [[[6,1],[4,8]],[[2,3],[7,5]]], byes: [9,10,0] },
+  { matches: [[[9,10],[7,5]],[[0,8],[6,4]]], byes: [1,2,3] },
+  { matches: [[[1,0],[7,10]],[[3,2],[8,9]]], byes: [4,5,6] },
+  { matches: [[[3,5],[4,0]],[[1,6],[2,10]]], byes: [7,8,9] },
+  { matches: [[[8,5],[2,3]],[[7,9],[6,4]]], byes: [10,0,1] },
+  { matches: [[[1,5],[7,6]],[[9,10],[8,0]]], byes: [2,3,4] },
+  { matches: [[[4,2],[3,10]],[[9,0],[8,1]]], byes: [5,6,7] },
+  { matches: [[[2,5],[1,4]],[[6,7],[0,3]]], byes: [8,9,10] }
+];
+
+function _buildFromPrecomputed(players, rawSchedule) {
+  return rawSchedule.map((rd, rIdx) => {
+    const matches = rd.matches.map((m, mIdx) => ({
+      id: 'R' + (rIdx + 1) + '-M' + (mIdx + 1),
+      court: 'Quadra ' + (mIdx + 1),
+      teamA: [players[m[0][0]], players[m[0][1]]],
+      teamB: [players[m[1][0]], players[m[1][1]]],
+      scoreA: 0, scoreB: 0,
+      finished: false, isEditing: false, isByeMatch: false
+    }));
+    const byePlayers = (rd.byes || []).map(idx => players[idx]).filter(Boolean);
+    return { round: rIdx + 1, matches, byePlayers };
+  });
+}
+
+function _buildWhist5(players) {
+  const rounds = [];
+  for (let r = 0; r < 5; r++) {
+    const matches = [{
+      id: 'R' + (r + 1) + '-M1',
+      court: 'Quadra 1',
+      teamA: [players[(r + 1) % 5], players[(r + 4) % 5]],
+      teamB: [players[(r + 2) % 5], players[(r + 3) % 5]],
+      scoreA: 0, scoreB: 0,
+      finished: false, isEditing: false, isByeMatch: false
+    }];
+    const byePlayers = [players[r]];
+    rounds.push({ round: r + 1, matches, byePlayers });
+  }
+  return rounds;
+}
+
+function _buildWhist8(players) {
+  const rounds = [];
+  for (let r = 0; r < 7; r++) {
+    const matches = [
+      {
+        id: 'R' + (r + 1) + '-M1',
+        court: 'Quadra 1',
+        teamA: [players[7], players[(3 + r) % 7]],
+        teamB: [players[(4 + r) % 7], players[(6 + r) % 7]],
+        scoreA: 0, scoreB: 0,
+        finished: false, isEditing: false, isByeMatch: false
+      },
+      {
+        id: 'R' + (r + 1) + '-M2',
+        court: 'Quadra 2',
+        teamA: [players[(0 + r) % 7], players[(1 + r) % 7]],
+        teamB: [players[(2 + r) % 7], players[(5 + r) % 7]],
+        scoreA: 0, scoreB: 0,
+        finished: false, isEditing: false, isByeMatch: false
+      }
+    ];
+    rounds.push({ round: r + 1, matches, byePlayers: [] });
+  }
+  return rounds;
+}
+
+function _buildWhist12(players) {
+  const rounds = [];
+  const baseTables = [
+    [[11, 6], [2, 1]],
+    [[10, 3], [8, 0]],
+    [[5, 7], [4, 9]]
+  ];
+
+  for (let r = 0; r < 11; r++) {
+    const matches = baseTables.map((t, idx) => {
+      const idxA1 = t[0][0] === 11 ? 11 : (t[0][0] + r) % 11;
+      const idxA2 = t[0][1] === 11 ? 11 : (t[0][1] + r) % 11;
+      const idxB1 = t[1][0] === 11 ? 11 : (t[1][0] + r) % 11;
+      const idxB2 = t[1][1] === 11 ? 11 : (t[1][1] + r) % 11;
+
+      return {
+        id: 'R' + (r + 1) + '-M' + (idx + 1),
+        court: 'Quadra ' + (idx + 1),
+        teamA: [players[idxA1], players[idxA2]],
+        teamB: [players[idxB1], players[idxB2]],
+        scoreA: 0, scoreB: 0,
+        finished: false, isEditing: false, isByeMatch: false
+      };
+    });
+    rounds.push({ round: r + 1, matches, byePlayers: [] });
+  }
+  return rounds;
+}
+
 /**
  * Rodízio de Duplas Rotativas — Individual
- * Cada jogador faz dupla exatamente 1x com cada outro jogador.
+ * Garante que a distribuição de confrontos entre adversários seja a mínima possível
+ * e que TODOS os atletas se enfrentem ao longo do torneio (zero zeros).
  */
 function generateRotatingDoublesRoundRobin(players) {
   const n = players.length;
+  if (n === 5) return _buildWhist5(players);
+  if (n === 6) return _buildFromPrecomputed(players, OPTIMAL_SCHEDULE_6);
+  if (n === 7) return _buildFromPrecomputed(players, OPTIMAL_SCHEDULE_7);
+  if (n === 8) return _buildWhist8(players);
+  if (n === 9) return _buildFromPrecomputed(players, OPTIMAL_SCHEDULE_9);
+  if (n === 10) return _buildFromPrecomputed(players, OPTIMAL_SCHEDULE_10);
+  if (n === 11) return _buildFromPrecomputed(players, OPTIMAL_SCHEDULE_11);
+  if (n === 12) return _buildWhist12(players);
+
+  // Fallback para qualquer outro número arbitrário
   const isOdd = n % 2 !== 0;
   const ghost = isOdd ? { id: 'ghost', name: '— Folga —', isBye: true } : null;
   const list = isOdd ? [...players, ghost] : [...players];
