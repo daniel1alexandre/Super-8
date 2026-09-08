@@ -171,18 +171,52 @@
       </section>
 
       <section id="tab-matches" class="tab-pane">
-        <div class="matches-header">
-          <div class="rounds-selector-wrapper">
-            <label class="selector-label">Rodada:</label>
-            <div class="rounds-nav" id="rounds-nav-buttons"></div>
-          </div>
-          <div class="round-status-box">
-            <span class="status-indicator"></span>
-            <span id="round-status-text">Rodada 1</span>
+        <!-- Alternador de Modo: Rodada por Rodada vs Esboço com Todas as Rodadas -->
+        <div class="matches-sub-nav">
+          <div class="matches-mode-toggle">
+            <button type="button" class="btn-mode-toggle active" id="btn-mode-single-round" data-mode="single">
+              🎯 Rodada por Rodada
+            </button>
+            <button type="button" class="btn-mode-toggle" id="btn-mode-all-rounds" data-mode="all">
+              📋 Esboço com Todas as Rodadas
+            </button>
           </div>
         </div>
-        <div class="matches-grid" id="matches-grid"></div>
-        <div id="bye-players-box" class="bye-players-box sel-hidden"></div>
+
+        <!-- Visão 1: Rodada por Rodada (Mantendo exatamente como está) -->
+        <div id="view-single-round">
+          <div class="matches-header">
+            <div class="rounds-selector-wrapper">
+              <label class="selector-label">Rodada:</label>
+              <div class="rounds-nav" id="rounds-nav-buttons"></div>
+            </div>
+            <div class="round-status-box">
+              <span class="status-indicator"></span>
+              <span id="round-status-text">Rodada 1</span>
+            </div>
+          </div>
+          <div class="matches-grid" id="matches-grid"></div>
+          <div id="bye-players-box" class="bye-players-box sel-hidden"></div>
+
+          <!-- Barra de Acesso Rápido ao Esboço Geral -->
+          <div class="matches-quick-all-bar">
+            <button type="button" class="btn btn-secondary btn-quick-all" id="btn-quick-view-all">
+              📋 Ver Esboço Completo de Todas as Rodadas
+            </button>
+          </div>
+        </div>
+
+        <!-- Visão 2: Esboço Completo com Todas as Rodadas -->
+        <div id="view-all-rounds" class="sel-hidden">
+          <div class="all-rounds-header">
+            <div>
+              <h2 class="section-title">Esboço Geral de Todas as Rodadas</h2>
+              <p class="section-desc">Todos os confrontos e rodízios programados para o torneio rodada a rodada.</p>
+            </div>
+            <span class="badge-accent" id="all-rounds-count-badge">0 Rodadas</span>
+          </div>
+          <div class="all-rounds-grid" id="all-rounds-grid"></div>
+        </div>
       </section>
 
       <section id="tab-leaderboard" class="tab-pane">

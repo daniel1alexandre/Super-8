@@ -7,6 +7,7 @@ class TournamentUI {
     this._selectedCategory = null;
     this._selectedFormat = null;
     this._selectedGender = 'masculino';
+    this._roundsViewMode = 'single';
   }
 
   /* ─── TELAS PRINCIPAIS ─────────────────────────────── */
@@ -202,6 +203,7 @@ class TournamentUI {
   }
 
   init() {
+    this.initRoundsModeToggle();
     const active = this.sm.getActiveTournament();
     if (!active || active.phase === 'selection') {
       this.goToSelection();
@@ -539,6 +541,154 @@ class TournamentUI {
     this.updateAppHeader();
   }
 
+  /* ─── MODO DE VISUALIZAÇÃO DAS RODADAS ─────────────── */
+
+  initRoundsModeToggle() {
+    if (this._modeToggleInitDone) return;
+    this._modeToggleInitDone = true;
+
+    const btnSingle = document.getElementById('btn-mode-single-round');
+    const btnAll    = document.getElementById('btn-mode-all-rounds');
+    const btnQuick  = document.getElementById('btn-quick-view-all');
+
+    if (btnSingle) {
+      btnSingle.addEventListener('click', () => this.setRoundsViewMode('single'));
+    }
+    if (btnAll) {
+      btnAll.addEventListener('click', () => this.setRoundsViewMode('all'));
+    }
+    if (btnQuick) {
+      btnQuick.addEventListener('click', () => {
+        this.setRoundsViewMode('all');
+        const viewAll = document.getElementById('view-all-rounds');
+        if (viewAll) viewAll.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    }
+  }
+
+  setRoundsViewMode(mode) {
+    this._roundsViewMode = mode;
+    const btnSingle  = document.getElementById('btn-mode-single-round');
+    const btnAll     = document.getElementById('btn-mode-all-rounds');
+    const viewSingle = document.getElementById('view-single-round');
+    const viewAll    = document.getElementById('view-all-rounds');
+
+    if (mode === 'all') {
+      if (btnSingle) btnSingle.classList.remove('active');
+      if (btnAll) btnAll.classList.add('active');
+      if (viewSingle) viewSingle.classList.add('sel-hidden');
+      if (viewAll) viewAll.classList.remove('sel-hidden');
+      this.renderAllRoundsOverview();
+    } else {
+      if (btnSingle) btnSingle.classList.add('active');
+      if (btnAll) btnAll.classList.remove('active');
+      if (viewSingle) viewSingle.classList.remove('sel-hidden');
+      if (viewAll) viewAll.classList.add('sel-hidden');
+      this.renderRoundsNav();
+      this.renderMatches();
+    }
+  }
+
+  renderAllRoundsOverview() {
+    const grid = document.getElementById('all-rounds-grid');
+    const badge = document.getElementById('all-rounds-count-badge');
+    if (!grid) return;
+
+    const rounds = this.sm.state.rounds || [];
+    if (badge) badge.textContent = rounds.length + ' Rodadas';
+
+    if (!this.sm.state.started || !rounds.length) {
+      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:3rem 1rem;color:var(--text-secondary);"><h3>Nenhum jogo em andamento</h3><p style="margin-top:.5rem">Cadastre os participantes e clique em <strong>Iniciar Torneio</strong>.</p></div>';
+      return;
+    }
+
+    const { TOURNAMENT_FORMATS } = window.TournamentConfig;
+    const fmt = TOURNAMENT_FORMATS[this.sm.state.format] || {};
+    const category = this.sm.state.category;
+    const currentRound = this.sm.state.currentRound || 1;
+
+    let html = '';
+    rounds.forEach(rd => {
+      const isCurrent = rd.round === currentRound;
+      const isCompleted = rd.matches.length > 0 && rd.matches.every(m => m.finished || m.isByeMatch);
+      const hasAnyFinished = rd.matches.some(m => m.finished);
+      const statusText = isCompleted ? '✓ Concluída' : (hasAnyFinished ? '⚡ Em andamento' : '⏳ A disputar');
+      const statusClass = isCompleted ? 'concluida' : (hasAnyFinished ? 'em-andamento' : 'pendente');
+
+      let matchesHtml = '';
+      rd.matches.forEach(m => {
+        const teamALabel = this._teamLabel(m.teamA, category, fmt);
+        const teamBLabel = this._teamLabel(m.teamB, category, fmt);
+        const isFin = !!m.finished;
+        const winnerA = isFin && m.scoreA > m.scoreB;
+        const winnerB = isFin && m.scoreB > m.scoreA;
+
+        matchesHtml +=
+          '<div class="overview-match-item ' + (isFin ? 'finished' : '') + '">' +
+            '<div class="overview-match-court-line">' +
+              '<span class="overview-court-pill">' + m.court + '</span>' +
+              (fmt.isMixed ? '<span class="mixed-badge">🔀 Mistas</span>' : '') +
+              '<span class="overview-status-text ' + (isFin ? 'concluida' : 'pendente') + '">' +
+                (isFin ? '✓ Finalizada' : 'A disputar') +
+              '</span>' +
+            '</div>' +
+            '<div class="overview-teams-row">' +
+              '<div class="overview-team-side team-a ' + (winnerA ? 'winner' : '') + '">' +
+                '<span class="overview-team-names">' + teamALabel + '</span>' +
+              '</div>' +
+              '<div class="overview-vs-block">' +
+                '<span class="overview-score-display ' + (isFin ? 'finished' : 'pending') + '">' +
+                  (isFin ? (m.scoreA + ' &times; ' + m.scoreB) : '— &times; —') +
+                '</span>' +
+              '</div>' +
+              '<div class="overview-team-side team-b ' + (winnerB ? 'winner' : '') + '">' +
+                '<span class="overview-team-names">' + teamBLabel + '</span>' +
+              '</div>' +
+            '</div>' +
+          '</div>';
+      });
+
+      let byeHtml = '';
+      if (rd.byePlayers && rd.byePlayers.length > 0) {
+        byeHtml =
+          '<div class="overview-bye-box">' +
+            '<span class="bye-label">💤 Folga:</span> ' +
+            rd.byePlayers.map(p => '<span class="bye-player-chip">' + p.name + '</span>').join(' ') +
+          '</div>';
+      }
+
+      html +=
+        '<div class="round-overview-card ' + (isCurrent ? 'active-round' : '') + ' ' + (isCompleted ? 'completed-round' : '') + '">' +
+          '<div class="round-overview-header">' +
+            '<div class="round-overview-title">' +
+              '<span class="round-overview-badge">Rodada ' + rd.round + '</span>' +
+              '<span class="round-overview-status ' + statusClass + '">' + statusText + '</span>' +
+            '</div>' +
+            '<button type="button" class="btn btn-sm btn-secondary btn-jump-round" data-round="' + rd.round + '" title="Abrir a Rodada ' + rd.round + '">' +
+              '🎯 Pontuar Rodada &rarr;' +
+            '</button>' +
+          '</div>' +
+          '<div class="overview-matches-list">' +
+            matchesHtml +
+          '</div>' +
+          byeHtml +
+        '</div>';
+    });
+
+    grid.innerHTML = html;
+
+    grid.querySelectorAll('.btn-jump-round').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const roundNum = parseInt(e.currentTarget.dataset.round);
+        if (roundNum) {
+          this.sm.setCurrentRound(roundNum);
+          this.setRoundsViewMode('single');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      });
+    });
+  }
+
   /* ─── RODADAS ──────────────────────────────────────── */
 
   renderRoundsNav() {
@@ -577,7 +727,8 @@ class TournamentUI {
       const womanName = woman ? '<span class="gender-tag women-tag">👩</span> ' + woman.name : '';
       return manName + (manName && womanName ? ' &amp; ' : '') + womanName;
     }
-    return team[0].name + ' &amp; ' + team[1].name;
+    if (team.length === 1) return team[0].name;
+    return team[0].name + (team[1] ? ' &amp; ' + team[1].name : '');
   }
 
   renderMatches() {
@@ -704,6 +855,15 @@ class TournamentUI {
         byeBox.classList.add('sel-hidden');
       }
     }
+
+    const quickAllBtn = document.getElementById('btn-quick-view-all');
+    if (quickAllBtn) {
+      const totalRds = this.sm.state.rounds ? this.sm.state.rounds.length : 0;
+      quickAllBtn.textContent = '📋 Ver Esboço Completo de Todas as Rodadas (' + totalRds + ' rodadas)';
+    }
+
+    // Sincroniza o esboço com todas as rodadas
+    this.renderAllRoundsOverview();
   }
 
   /* ─── LEADERBOARD ──────────────────────────────────── */
