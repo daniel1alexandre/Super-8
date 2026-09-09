@@ -755,6 +755,26 @@ class TournamentUI {
 
     container.innerHTML = '';
 
+    // ── Cabeçalho de Mapa de Quadras ──────────────────────
+    const mapHeader = document.createElement('div');
+    mapHeader.className = 'courts-map-header';
+    mapHeader.innerHTML =
+      '<div class="courts-map-title">' +
+        '<span class="courts-map-icon">🏟️</span>' +
+        '<span>Mapa de Quadras — Rodada ' + currentRound + '</span>' +
+      '</div>' +
+      '<div class="courts-map-legend">' +
+        '<span class="cm-legend-item cm-pending">⏳ Aguardando</span>' +
+        '<span class="cm-legend-item cm-done">✓ Finalizada</span>' +
+        '<span class="cm-legend-item cm-editing">✏️ Editando</span>' +
+      '</div>';
+    container.appendChild(mapHeader);
+
+    // ── Grid de Quadras ──────────────────────────────────
+    const courtsGrid = document.createElement('div');
+    courtsGrid.className = 'courts-map-grid';
+    container.appendChild(courtsGrid);
+
     roundData.matches.forEach(match => {
       const isFinished = !!match.finished;
       const isEditing  = !!match.isEditing;
@@ -765,81 +785,88 @@ class TournamentUI {
       const teamALabel = this._teamLabel(match.teamA, category, fmt);
       const teamBLabel = this._teamLabel(match.teamB, category, fmt);
 
-      const card = document.createElement('div');
-      card.className = 'match-card' + (isFinished ? ' finished' : '') + (isEditing ? ' editing-active' : '') + (fmt.isMixed ? ' mixed-match' : '');
+      // ── Tile da Quadra (court map tile) ────────────────
+      const tile = document.createElement('div');
+      const tileState = isEditing ? 'editing' : isFinished ? 'done' : 'pending';
+      tile.className = 'court-tile court-tile--' + tileState + (fmt.isMixed ? ' mixed-match' : '');
 
-      card.innerHTML =
-        '<div class="match-court-header">' +
-          '<span class="court-badge">' + match.court + '</span>' +
+      tile.innerHTML =
+        // Cabeçalho da quadra
+        '<div class="court-tile__header">' +
+          '<span class="court-tile__badge">' + match.court + '</span>' +
           (fmt.isMixed ? '<span class="mixed-badge">🔀 Mistas</span>' : '') +
-          '<span class="match-status-badge ' + (isFinished ? 'concluida' : 'pendente') + '">' +
-            (isFinished ? (isEditing ? '✏️ Editando...' : '✓ Finalizada / Salva') : 'Aguardando Resultado') +
+          '<span class="court-tile__status">' +
+            (isFinished ? (isEditing ? '✏️ Editando...' : '✓ Finalizada') : '⏳ Aguardando') +
           '</span>' +
         '</div>' +
-        '<div class="match-body">' +
-          '<div class="team-row ' + (isTeamAWinner ? 'winner' : '') + '">' +
-            '<div class="team-players"><span class="team-name-label">Dupla 1</span>' +
-              '<div class="team-members">' + teamALabel + '</div></div>' +
-            '<div class="score-controller">' +
-              (!isLocked ? '<button class="btn-score-adjust" data-action="dec" data-match="' + match.id + '" data-team="A">-</button>' : '') +
-              '<input type="number" min="0" max="99" class="score-input ' + (isLocked ? 'score-locked' : '') + '" id="inp-a-' + match.id + '" data-match="' + match.id + '" data-team="A" value="' + match.scoreA + '" ' + (isLocked ? 'readonly' : '') + ' />' +
-              (!isLocked ? '<button class="btn-score-adjust" data-action="inc" data-match="' + match.id + '" data-team="A">+</button>' : '') +
+        // Superfície da quadra
+        '<div class="court-tile__surface">' +
+          // Linha central e rede
+          '<div class="court-net"><div class="court-net-line"></div></div>' +
+          // Time A
+          '<div class="court-side court-side--a ' + (isTeamAWinner ? 'winner-side' : '') + '">' +
+            '<div class="court-team-names">' + teamALabel + '</div>' +
+            '<div class="court-score-wrap">' +
+              '<input type="number" min="0" max="99" ' +
+                'class="score-input court-score-input ' + (isLocked ? 'score-locked' : '') + '" ' +
+                'id="inp-a-' + match.id + '" data-match="' + match.id + '" data-team="A" ' +
+                'value="' + match.scoreA + '" ' + (isLocked ? 'readonly' : '') + ' />' +
             '</div>' +
           '</div>' +
-          '<div class="team-row ' + (isTeamBWinner ? 'winner' : '') + '">' +
-            '<div class="team-players"><span class="team-name-label">Dupla 2</span>' +
-              '<div class="team-members">' + teamBLabel + '</div></div>' +
-            '<div class="score-controller">' +
-              (!isLocked ? '<button class="btn-score-adjust" data-action="dec" data-match="' + match.id + '" data-team="B">-</button>' : '') +
-              '<input type="number" min="0" max="99" class="score-input ' + (isLocked ? 'score-locked' : '') + '" id="inp-b-' + match.id + '" data-match="' + match.id + '" data-team="B" value="' + match.scoreB + '" ' + (isLocked ? 'readonly' : '') + ' />' +
-              (!isLocked ? '<button class="btn-score-adjust" data-action="inc" data-match="' + match.id + '" data-team="B">+</button>' : '') +
+          // Time B
+          '<div class="court-side court-side--b ' + (isTeamBWinner ? 'winner-side' : '') + '">' +
+            '<div class="court-team-names">' + teamBLabel + '</div>' +
+            '<div class="court-score-wrap">' +
+              '<input type="number" min="0" max="99" ' +
+                'class="score-input court-score-input ' + (isLocked ? 'score-locked' : '') + '" ' +
+                'id="inp-b-' + match.id + '" data-match="' + match.id + '" data-team="B" ' +
+                'value="' + match.scoreB + '" ' + (isLocked ? 'readonly' : '') + ' />' +
             '</div>' +
           '</div>' +
         '</div>' +
-        '<div class="match-footer">' +
+        // Rodapé
+        '<div class="court-tile__footer">' +
           (isLocked
-            ? '<button class="btn btn-secondary btn-edit-match" data-match="' + match.id + '">✏️ Editar Resultado</button>'
+            ? '<button class="btn btn-secondary btn-edit-match" data-match="' + match.id + '">✏️ Editar</button>'
             : '<button class="btn btn-primary btn-save-match" data-match="' + match.id + '">💾 Salvar Resultado</button>') +
         '</div>';
 
-      card.querySelectorAll('.btn-score-adjust').forEach(btn => {
-        btn.addEventListener('click', e => {
-          const action = e.currentTarget.dataset.action;
-          const mId    = e.currentTarget.dataset.match;
-          const team   = e.currentTarget.dataset.team;
-          const inpA = card.querySelector('#inp-a-' + mId);
-          const inpB = card.querySelector('#inp-b-' + mId);
-          let vA = parseInt(inpA.value) || 0;
-          let vB = parseInt(inpB.value) || 0;
-          if (team === 'A') { vA = action === 'inc' ? vA + 1 : Math.max(0, vA - 1); inpA.value = vA; }
-          else              { vB = action === 'inc' ? vB + 1 : Math.max(0, vB - 1); inpB.value = vB; }
-          this.sm.updateMatchScore(currentRound, mId, vA, vB);
+      // ── Evento: limpar campo ao focar ─────────────────
+      tile.querySelectorAll('.score-input:not(.score-locked)').forEach(inp => {
+        inp.addEventListener('focus', e => {
+          e.target.value = '';
+        });
+        inp.addEventListener('blur', e => {
+          if (e.target.value === '') e.target.value = '0';
         });
       });
 
-      card.querySelectorAll('.score-input').forEach(inp => {
+      tile.querySelectorAll('.score-input').forEach(inp => {
         inp.addEventListener('change', e => {
           const mId = e.currentTarget.dataset.match;
-          const inpA = card.querySelector('#inp-a-' + mId);
-          const inpB = card.querySelector('#inp-b-' + mId);
+          const inpA = tile.querySelector('#inp-a-' + mId);
+          const inpB = tile.querySelector('#inp-b-' + mId);
           inpA.value = Math.max(0, parseInt(inpA.value) || 0);
           inpB.value = Math.max(0, parseInt(inpB.value) || 0);
           this.sm.updateMatchScore(currentRound, mId, parseInt(inpA.value), parseInt(inpB.value));
         });
       });
 
-      const saveBtn = card.querySelector('.btn-save-match');
+      const saveBtn = tile.querySelector('.btn-save-match');
       if (saveBtn) {
         saveBtn.addEventListener('click', () => {
-          const inpA = card.querySelector('#inp-a-' + match.id);
-          const inpB = card.querySelector('#inp-b-' + match.id);
+          const inpA = tile.querySelector('#inp-a-' + match.id);
+          const inpB = tile.querySelector('#inp-b-' + match.id);
           this.sm.saveMatchResult(currentRound, match.id, parseInt(inpA.value) || 0, parseInt(inpB.value) || 0);
           this.renderMatches(); this.renderLeaderboard(); this.renderRoundsNav(); this.updateHeaderProgress();
           this._refreshMatchupsIfActive();
+
+          // ── Verificar se todos os jogos da rodada terminaram ──
+          this._checkRoundCompletion(currentRound);
         });
       }
 
-      const editBtn = card.querySelector('.btn-edit-match');
+      const editBtn = tile.querySelector('.btn-edit-match');
       if (editBtn) {
         editBtn.addEventListener('click', () => {
           this.sm.editMatchResult(currentRound, match.id);
@@ -847,7 +874,7 @@ class TournamentUI {
         });
       }
 
-      container.appendChild(card);
+      courtsGrid.appendChild(tile);
     });
 
     // Folga
@@ -1032,6 +1059,49 @@ class TournamentUI {
     if (pane && pane.classList.contains('active')) {
       this.renderMatchups();
     }
+  }
+
+  /* ─── AVANÇO AUTOMÁTICO DE RODADA ──────────────────── */
+
+  _checkRoundCompletion(roundNumber) {
+    const rounds = this.sm.state.rounds;
+    if (!rounds) return;
+
+    const ro = rounds.find(r => r.round === roundNumber);
+    if (!ro) return;
+
+    // Verificar se todos os jogos (não-bye) estão finalizados
+    const allDone = ro.matches.every(m => m.finished || m.isByeMatch);
+    if (!allDone) return;
+
+    // Procurar a próxima rodada
+    const nextRound = rounds.find(r => r.round === roundNumber + 1);
+    if (!nextRound) {
+      // Última rodada do torneio — exibir parabéns
+      this.showToast('🏆 Torneio finalizado! Todos os jogos foram concluídos.', 4500);
+      return;
+    }
+
+    // Aguardar um momento para deixar a UI atualizar antes de avançar
+    setTimeout(() => {
+      this.showToast(
+        '✅ Rodada ' + roundNumber + ' concluída! Avançando para a Rodada ' + (roundNumber + 1) + '...',
+        3200
+      );
+
+      setTimeout(() => {
+        this.sm.setCurrentRound(roundNumber + 1);
+        this.renderRoundsNav();
+        this.renderMatches();
+        this.renderLeaderboard();
+        this.updateHeaderProgress();
+        // Scroll suave para o topo da seção de jogos
+        const matchesSection = document.getElementById('view-single-round');
+        if (matchesSection) {
+          matchesSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 800);
+    }, 400);
   }
 
   /* ─── ABA CONFRONTOS (HEAD-TO-HEAD) ────────────────── */
