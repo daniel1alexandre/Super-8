@@ -9,9 +9,83 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="src/css/style.css">
+  <link rel="stylesheet" href="src/css/auth.css">
   <link rel="icon" href="src/assets/db-eventos-logo.jpg">
 </head>
 <body>
+
+  <!-- TELA DE LOGIN -->
+  <div id="screen-login">
+    <!-- Partículas decorativas geradas via JS -->
+    <div class="login-particles" id="login-particles"></div>
+
+    <div class="login-container">
+      <div class="login-card">
+        <!-- Marca -->
+        <div class="login-brand">
+          <div class="login-logo-ring">
+            <img src="src/assets/db-eventos-logo.jpg" alt="DB Eventos" class="login-logo-img" />
+          </div>
+          <div>
+            <h1 class="login-app-name">SUPER <span>BT</span></h1>
+            <p class="login-tagline">DB Eventos · Gerenciamento de Torneios</p>
+          </div>
+        </div>
+
+        <div class="login-divider">Acesso ao Sistema</div>
+
+        <!-- Formulário -->
+        <form class="login-form" id="login-form" autocomplete="off">
+          <!-- Usuário -->
+          <div class="login-field">
+            <label class="login-label" for="login-username">Usuário</label>
+            <div class="login-input-wrap">
+              <span class="login-input-icon">👤</span>
+              <input
+                type="text"
+                id="login-username"
+                class="login-input"
+                placeholder="Digite seu usuário"
+                autocomplete="username"
+                required
+              />
+            </div>
+          </div>
+
+          <!-- Senha -->
+          <div class="login-field">
+            <label class="login-label" for="login-password">Senha</label>
+            <div class="login-input-wrap">
+              <span class="login-input-icon">🔑</span>
+              <input
+                type="password"
+                id="login-password"
+                class="login-input"
+                placeholder="Digite sua senha"
+                autocomplete="current-password"
+                required
+              />
+              <button type="button" class="login-pwd-toggle" id="btn-toggle-pwd" title="Mostrar/ocultar senha">👁️</button>
+            </div>
+          </div>
+
+          <!-- Erro -->
+          <div class="login-error-msg" id="login-error">
+            <span>⚠️</span>
+            <span id="login-error-text">Usuário ou senha incorretos.</span>
+          </div>
+
+          <!-- Botão entrar -->
+          <button type="submit" class="btn-login" id="btn-do-login">
+            <span class="btn-login-text">🚀 Entrar</span>
+            <span class="btn-login-spinner"></span>
+          </button>
+        </form>
+
+        <p class="login-footer-note">🔒 Acesso restrito · DB Eventos</p>
+      </div>
+    </div>
+  </div>
 
   <!-- TELA DE SELECAO -->
   <div id="screen-selection" class="selection-screen">
@@ -132,6 +206,20 @@
         </div>
 
         <div class="header-actions">
+          <!-- Badge do usuário logado -->
+          <div class="user-badge-wrap" id="user-badge-wrap">
+            <div class="user-badge" id="user-badge">
+              <span class="user-badge-avatar" id="user-badge-avatar">?</span>
+              <span id="user-badge-name"></span>
+              <span class="user-badge-role" id="user-badge-role"></span>
+            </div>
+            <button type="button" class="btn-admin-users" id="btn-admin-users" style="display:none" title="Gerenciar Usuários">
+              👥 Usuários
+            </button>
+            <button type="button" class="btn-logout" id="btn-logout" title="Sair do sistema">
+              🚪 Sair
+            </button>
+          </div>
           <button id="btn-tv-mode" class="btn btn-secondary"><span class="btn-icon">📺</span> Modo TV</button>
           <button id="btn-share-results" class="btn btn-secondary"><span class="btn-icon">📲</span> Compartilhar</button>
           <button id="btn-cancel-tournament" class="btn btn-danger-outline" title="Cancelar ou Excluir Torneio"><span class="btn-icon">🗑️</span> Excluir</button>
@@ -412,6 +500,83 @@
     </main>
   </div>
 
+  <!-- Modal ADMIN: Gerenciar Usuários -->
+  <div class="modal-overlay" id="modal-admin-users" style="display:none;">
+    <div class="modal-content modal-admin-content">
+      <div class="modal-header">
+        <h3 class="modal-title">👥 Gerenciar Usuários</h3>
+        <button class="btn-close" id="btn-close-admin-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <!-- Formulário criar usuário -->
+        <div class="admin-create-form">
+          <div class="admin-form-title">➕ Novo Usuário</div>
+          <div class="admin-form-grid" id="admin-form-grid">
+            <div class="admin-form-group">
+              <label class="admin-form-label">Usuário (login)</label>
+              <input type="text" id="new-user-username" class="admin-form-input" placeholder="ex: joao.silva" maxlength="30" />
+            </div>
+            <div class="admin-form-group">
+              <label class="admin-form-label">Nome de exibição</label>
+              <input type="text" id="new-user-displayname" class="admin-form-input" placeholder="ex: João Silva" maxlength="40" />
+            </div>
+            <div class="admin-form-group">
+              <label class="admin-form-label">Senha</label>
+              <input type="password" id="new-user-password" class="admin-form-input" placeholder="Mínimo 4 caracteres" maxlength="50" />
+            </div>
+            <div class="admin-form-group">
+              <label class="admin-form-label">Permissão</label>
+              <select id="new-user-role" class="admin-form-select">
+                <option value="operator">🎯 Operador — Cria torneios e insere resultados</option>
+                <option value="viewer">👁️ Visualizador — Somente leitura</option>
+                <option value="admin">👑 Administrador — Acesso total</option>
+              </select>
+            </div>
+            <div class="admin-form-feedback" id="admin-form-feedback"></div>
+            <button type="button" class="btn-create-user" id="btn-create-user">✅ Criar Usuário</button>
+          </div>
+        </div>
+
+        <!-- Lista de usuários -->
+        <div class="admin-users-list">
+          <div class="admin-users-title">
+            <span>Usuários Cadastrados</span>
+            <span class="admin-users-count" id="admin-users-count">0</span>
+          </div>
+          <div id="admin-users-list-body"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Alterar Senha de Usuário -->
+  <div class="modal-overlay" id="modal-change-pwd" style="display:none;">
+    <div class="modal-content modal-change-pwd-content">
+      <div class="modal-header">
+        <h3 class="modal-title">🔑 Alterar Senha</h3>
+        <button class="btn-close" id="btn-close-change-pwd">&times;</button>
+      </div>
+      <div class="modal-body" style="padding:1.5rem;">
+        <p style="color:var(--text-secondary);font-size:0.9rem;margin-bottom:1rem;">Alterando senha para: <strong id="change-pwd-username" style="color:var(--text-primary);"></strong></p>
+        <div style="display:flex;flex-direction:column;gap:0.75rem;">
+          <div class="admin-form-group">
+            <label class="admin-form-label">Nova Senha</label>
+            <input type="password" id="change-pwd-new" class="admin-form-input" placeholder="Nova senha" />
+          </div>
+          <div class="admin-form-group">
+            <label class="admin-form-label">Confirmar Nova Senha</label>
+            <input type="password" id="change-pwd-confirm" class="admin-form-input" placeholder="Confirme a nova senha" />
+          </div>
+          <div class="admin-form-feedback" id="change-pwd-feedback"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="btn-abort-change-pwd" class="btn btn-secondary">Cancelar</button>
+        <button type="button" id="btn-confirm-change-pwd" class="btn btn-primary">🔑 Salvar Nova Senha</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal Compartilhar -->
   <div class="modal-overlay" id="modal-share" style="display:none;">
     <div class="modal-content">
@@ -469,6 +634,7 @@
   <script src="src/js/tournament-config.js"></script>
   <script src="src/js/round-robin-engine.js"></script>
   <script src="src/js/tournament-state.js"></script>
+  <script src="src/js/auth.js"></script>
   <script src="src/js/ui.js"></script>
   <script src="src/js/app.js"></script>
 </body>
