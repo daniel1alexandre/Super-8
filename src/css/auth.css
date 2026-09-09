@@ -22,27 +22,54 @@
   display: none;
 }
 
-/* Partículas decorativas */
+/* Bolinhas de Beach Tennis decorativas flutuando */
 .login-particles {
   position: absolute;
   inset: 0;
   overflow: hidden;
   pointer-events: none;
+  z-index: 0;
 }
 
-.login-particle {
+.login-particle-ball {
   position: absolute;
+  top: 0;
   border-radius: 50%;
-  animation: float-particle linear infinite;
+  animation: float-bt-ball linear infinite;
   opacity: 0;
+  will-change: transform, opacity;
+  user-select: none;
+  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.45));
+  transition: opacity 0.3s ease;
 }
 
-@keyframes float-particle {
-  0%   { transform: translateY(110vh) rotate(0deg); opacity: 0; }
-  10%  { opacity: 0.6; }
-  90%  { opacity: 0.3; }
-  100% { transform: translateY(-10vh) rotate(360deg); opacity: 0; }
+.login-particle-ball svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
 }
+
+@keyframes float-bt-ball {
+  0% {
+    transform: translateY(112vh) translateX(0) rotate(0deg);
+    opacity: 0;
+  }
+  6% {
+    opacity: var(--target-opacity, 0.7);
+  }
+  50% {
+    transform: translateY(52vh) translateX(var(--sway, 24px)) rotate(180deg);
+  }
+  92% {
+    opacity: var(--target-opacity, 0.7);
+  }
+  100% {
+    transform: translateY(-16vh) translateX(calc(var(--sway, 24px) * -0.8)) rotate(360deg);
+    opacity: 0;
+  }
+}
+
 
 /* Container central */
 .login-container {

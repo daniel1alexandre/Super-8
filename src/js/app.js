@@ -12,27 +12,89 @@ document.addEventListener("DOMContentLoaded", () => {
   const screenSelection = document.getElementById("screen-selection");
   const screenApp       = document.getElementById("screen-app");
 
-  // ── Partículas decorativas ──────────────────────────
-  function spawnParticles() {
+  // ── Bolinhas de Beach Tennis flutuando no Login ───────
+  function spawnBeachTennisBalls() {
     const container = document.getElementById("login-particles");
     if (!container) return;
-    const colors = ["#ff9f1c", "#2ec4b6", "#0096c7", "#ffe45e", "#ff3366"];
-    for (let i = 0; i < 18; i++) {
-      const p = document.createElement("div");
-      p.className = "login-particle";
-      const size = Math.random() * 10 + 4;
-      p.style.cssText = [
-        `width:${size}px`, `height:${size}px`,
-        `left:${Math.random() * 100}%`,
-        `background:${colors[Math.floor(Math.random() * colors.length)]}`,
-        `animation-duration:${Math.random() * 12 + 8}s`,
-        `animation-delay:${Math.random() * 6}s`,
-        `opacity:0`
-      ].join(";");
-      container.appendChild(p);
+    container.innerHTML = "";
+
+    // Gera o SVG de uma bola oficial de beach tennis (Stage 2 Laranja/Amarelo com costura e iluminação 3D)
+    function createBallSvg(variant, idSuffix, initialAngle) {
+      const gradId = `btGrad_${idSuffix}`;
+      const clipId = `btClip_${idSuffix}`;
+
+      // Amarelo neon feltro e laranja beach tennis de alto contraste e vibração
+      const yellowFelt = "#c4f000";
+      const orangeBt   = "#ff4400";
+
+      // Variante 1: Divisão horizontal (Topo Laranja, Base Amarela)
+      // Variante 0: Divisão vertical (Direita Laranja, Esquerda Amarela)
+      const orangePath = variant === 1
+        ? `<path d="M 3,50 A 47,47 0 0,1 97,50 L 3,50 Z" fill="${orangeBt}" />`
+        : `<path d="M 50,3 A 47,47 0 0,1 50,97 L 50,3 Z" fill="${orangeBt}" />`;
+
+      return `
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="transform: rotate(${initialAngle}deg); transform-origin: 50% 50%; width:100%; height:100%;">
+          <defs>
+            <radialGradient id="${gradId}" cx="30%" cy="26%" r="72%">
+              <stop offset="0%" stop-color="#ffffff" stop-opacity="0.32" />
+              <stop offset="35%" stop-color="#ffffff" stop-opacity="0.0" />
+              <stop offset="76%" stop-color="#000000" stop-opacity="0.22" />
+              <stop offset="100%" stop-color="#000000" stop-opacity="0.52" />
+            </radialGradient>
+            <clipPath id="${clipId}">
+              <circle cx="50" cy="50" r="47" />
+            </clipPath>
+          </defs>
+          <g clip-path="url(#${clipId})">
+            <!-- Base feltro amarelo -->
+            <circle cx="50" cy="50" r="47" fill="${yellowFelt}" />
+            <!-- Metade laranja oficial de Beach Tennis -->
+            ${orangePath}
+            <!-- Costuras brancas curvadas clássicas de tênis -->
+            <path d="M 16,22 C 37,35 37,65 16,78" fill="none" stroke="#ffffff" stroke-width="4.8" stroke-linecap="round" opacity="0.96" />
+            <path d="M 84,22 C 63,35 63,65 84,78" fill="none" stroke="#ffffff" stroke-width="4.8" stroke-linecap="round" opacity="0.96" />
+            <!-- Efeito esférico e relevo 3D sem lavar as cores -->
+            <circle cx="50" cy="50" r="47" fill="url(#${gradId})" />
+          </g>
+          <circle cx="50" cy="50" r="47" fill="none" stroke="rgba(0,0,0,0.25)" stroke-width="1.6" />
+        </svg>
+      `;
+    }
+
+    const totalBalls = 20;
+    for (let i = 0; i < totalBalls; i++) {
+      const ball = document.createElement("div");
+      ball.className = "login-particle-ball";
+
+      // Variação de tamanho: 30px até 68px
+      const size = Math.floor(Math.random() * 38) + 30;
+      const leftPos = Math.floor(Math.random() * 94) + 3; // 3% a 97% da largura
+      const duration = (Math.random() * 9 + 8).toFixed(1); // 8s a 17s
+      const delay = (-Math.random() * 16).toFixed(1); // Preencher a tela desde o início
+      const sway = Math.floor(Math.random() * 32 + 16); // Balanço lateral em px
+      const targetOpacity = (Math.random() * 0.32 + 0.60).toFixed(2); // 0.60 a 0.92
+      const initialAngle = Math.floor(Math.random() * 360);
+      const isSmall = size < 36;
+
+      ball.style.width = `${size}px`;
+      ball.style.height = `${size}px`;
+      ball.style.left = `${leftPos}%`;
+      ball.style.setProperty("--sway", `${sway}px`);
+      ball.style.setProperty("--target-opacity", targetOpacity);
+      ball.style.animationDuration = `${duration}s`;
+      ball.style.animationDelay = `${delay}s`;
+
+      if (isSmall) {
+        ball.style.filter = "blur(1.2px) drop-shadow(0 4px 10px rgba(0,0,0,0.3))";
+      }
+
+      const variant = i % 2;
+      ball.innerHTML = createBallSvg(variant, `${i}_${Date.now()}`, initialAngle);
+      container.appendChild(ball);
     }
   }
-  spawnParticles();
+  spawnBeachTennisBalls();
 
   // ── Mostrar/ocultar tela de login ───────────────────
   function showLoginScreen() {
@@ -165,8 +227,28 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   /* ══════════════════════════════════════════════════════
+     APP PRINCIPAL
+  ══════════════════════════════════════════════════════ */
+
+  const sm = new TournamentStateManager();
+  const ui = new TournamentUI(sm);
+  let appInitialized = false;
+
+  function initApp() {
+    if (appInitialized) return;
+    appInitialized = true;
+    ui.init();
+    wireAppEvents();
+  }
+
+  /* ══════════════════════════════════════════════════════
      VERIFICAR SESSÃO EXISTENTE
   ══════════════════════════════════════════════════════ */
+
+  if (window.location.hash === "#logout" || window.location.search.includes("logout") || window.location.search.includes("screen=login")) {
+    auth.logout();
+    history.replaceState(null, "", window.location.pathname);
+  }
 
   const currentUser = auth.getCurrentUser();
   if (currentUser) {
@@ -178,17 +260,7 @@ document.addEventListener("DOMContentLoaded", () => {
     showLoginScreen();
   }
 
-  /* ══════════════════════════════════════════════════════
-     APP PRINCIPAL
-  ══════════════════════════════════════════════════════ */
 
-  const sm = new TournamentStateManager();
-  const ui = new TournamentUI(sm);
-
-  function initApp() {
-    ui.init();
-    wireAppEvents();
-  }
 
   function wireAppEvents() {
 
