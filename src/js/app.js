@@ -178,6 +178,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const role     = document.getElementById("user-badge-role");
     const adminBtn = document.getElementById("btn-admin-users");
 
+    const selAvatar = document.getElementById("sel-user-badge-avatar");
+    const selName   = document.getElementById("sel-user-badge-name");
+    const selRole   = document.getElementById("sel-user-badge-role");
+
     const initials = (user.displayName || user.username || "?")
       .split(" ").slice(0, 2).map(w => w[0]).join("").toUpperCase();
     const roleLabels = { admin: "Admin", operator: "Operador", viewer: "Viewer" };
@@ -186,6 +190,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (name)   name.textContent = user.displayName || user.username;
     if (role)   { role.textContent = roleLabels[user.role] || user.role; role.className = "user-badge-role role-" + user.role; }
     if (adminBtn) adminBtn.style.display = user.role === "admin" ? "flex" : "none";
+
+    if (selAvatar) { selAvatar.textContent = initials; selAvatar.className = "user-badge-avatar role-" + user.role; }
+    if (selName)   selName.textContent = user.displayName || user.username;
+    if (selRole)   { selRole.textContent = roleLabels[user.role] || user.role; selRole.className = "user-badge-role role-" + user.role; }
   }
 
   /* ══════════════════════════════════════════════════════
@@ -216,14 +224,21 @@ document.addEventListener("DOMContentLoaded", () => {
      LOGOUT
   ══════════════════════════════════════════════════════ */
 
+  function handleUserLogout() {
+    if (confirm("Deseja realmente sair do sistema?")) {
+      auth.logout();
+      window.location.reload();
+    }
+  }
+
   const btnLogout = document.getElementById("btn-logout");
   if (btnLogout) {
-    btnLogout.addEventListener("click", () => {
-      if (confirm("Deseja realmente sair do sistema?")) {
-        auth.logout();
-        window.location.reload();
-      }
-    });
+    btnLogout.addEventListener("click", handleUserLogout);
+  }
+
+  const btnSelLogout = document.getElementById("btn-sel-logout");
+  if (btnSelLogout) {
+    btnSelLogout.addEventListener("click", handleUserLogout);
   }
 
   /* ══════════════════════════════════════════════════════
@@ -412,16 +427,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     /* ─── MODO TV ─── */
     document.getElementById("btn-tv-mode").addEventListener("click", () => {
-      document.body.classList.toggle("tv-mode");
-      const btn = document.getElementById("btn-tv-mode");
-      if (document.body.classList.contains("tv-mode")) {
-        btn.classList.replace("btn-secondary", "btn-primary");
-        btn.innerHTML = '<span class="btn-icon">✖</span> Sair Telão';
-        ui.switchTab("leaderboard");
-      } else {
-        btn.classList.replace("btn-primary", "btn-secondary");
-        btn.innerHTML = '<span class="btn-icon">📺</span> Modo TV';
-      }
+      ui.toggleTvMode();
     });
 
     /* ─── COMPARTILHAR ─── */
@@ -492,9 +498,45 @@ document.addEventListener("DOMContentLoaded", () => {
     if (btnExecuteDelete)    btnExecuteDelete.addEventListener("click", executeDeleteTournament);
     if (modalDelete) modalDelete.addEventListener("click", e => { if (e.target === modalDelete) closeDeleteModal(); });
 
+    /* ─── LIMPAR RESULTADOS E REINICIAR TORNEIO ─── */
+    const modalReset         = document.getElementById("modal-confirm-reset");
+    const btnClearMatches    = document.getElementById("btn-clear-matches");
+    const btnCloseResetModal = document.getElementById("btn-close-reset-modal");
+    const btnAbortReset      = document.getElementById("btn-abort-reset");
+    const btnExecuteReset    = document.getElementById("btn-execute-reset");
+
+    function openResetModal() {
+      if (modalReset) modalReset.style.display = "flex";
+    }
+
+    function closeResetModal() {
+      if (modalReset) modalReset.style.display = "none";
+    }
+
+    function executeResetTournamentResults() {
+      closeResetModal();
+      sm.resetTournamentResults();
+      ui.renderRoundsNav();
+      ui.renderMatches();
+      ui.renderLeaderboard();
+      ui.updateHeaderProgress();
+      ui._refreshMatchupsIfActive();
+      ui._refreshTvModeIfActive();
+      ui.switchTab("matches");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      ui.showToast("🔄 Torneio reiniciado! Todos os resultados foram limpos e os atletas mantidos.");
+    }
+
+    if (btnClearMatches)     btnClearMatches.addEventListener("click", openResetModal);
+    if (btnCloseResetModal)  btnCloseResetModal.addEventListener("click", closeResetModal);
+    if (btnAbortReset)       btnAbortReset.addEventListener("click", closeResetModal);
+    if (btnExecuteReset)     btnExecuteReset.addEventListener("click", executeResetTournamentResults);
+    if (modalReset) modalReset.addEventListener("click", e => { if (e.target === modalReset) closeResetModal(); });
+
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape") {
         closeDeleteModal();
+        closeResetModal();
         if (modalShare) modalShare.style.display = "none";
         const mAdmin = document.getElementById("modal-admin-users");
         if (mAdmin) mAdmin.style.display = "none";

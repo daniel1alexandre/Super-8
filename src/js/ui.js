@@ -11,6 +11,8 @@ class TournamentUI {
     this._matchupsViewMode = 'matrix';
     this._matchupsGenderFilter = 'all';
     this._matchupsSearchQuery = '';
+    this._tvFilter = 'all';
+    this._tvView = 'matches';
   }
 
   /* ─── TELAS PRINCIPAIS ─────────────────────────────── */
@@ -208,6 +210,7 @@ class TournamentUI {
   init() {
     this.initRoundsModeToggle();
     this.initMatchupsEvents();
+    this.initTvModeEvents();
     const active = this.sm.getActiveTournament();
     if (!active || active.phase === 'selection') {
       this.goToSelection();
@@ -860,6 +863,18 @@ class TournamentUI {
           this.sm.saveMatchResult(currentRound, match.id, parseInt(inpA.value) || 0, parseInt(inpB.value) || 0);
           this.renderMatches(); this.renderLeaderboard(); this.renderRoundsNav(); this.updateHeaderProgress();
           this._refreshMatchupsIfActive();
+          this._refreshTvModeIfActive();
+
+          // ── Verificar se foi o último resultado do torneio inteiro ──
+          const { completed, total } = this.sm.getCompletedMatchesCount();
+          if (total > 0 && completed === total) {
+            this.showToast('🏆 Último resultado registrado! Redirecionando para a Classificação...', 3200);
+            setTimeout(() => {
+              this.switchTab('leaderboard');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }, 600);
+            return;
+          }
 
           // ── Verificar se todos os jogos da rodada terminaram ──
           this._checkRoundCompletion(currentRound);
@@ -871,6 +886,7 @@ class TournamentUI {
         editBtn.addEventListener('click', () => {
           this.sm.editMatchResult(currentRound, match.id);
           this.renderMatches();
+          this._refreshTvModeIfActive();
         });
       }
 
@@ -1077,8 +1093,12 @@ class TournamentUI {
     // Procurar a próxima rodada
     const nextRound = rounds.find(r => r.round === roundNumber + 1);
     if (!nextRound) {
-      // Última rodada do torneio — exibir parabéns
-      this.showToast('🏆 Torneio finalizado! Todos os jogos foram concluídos.', 4500);
+      // Última rodada do torneio — redirecionar para a classificação
+      this.showToast('🏆 Torneio finalizado! Redirecionando para a Classificação...', 3200);
+      setTimeout(() => {
+        this.switchTab('leaderboard');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 600);
       return;
     }
 
@@ -1095,6 +1115,7 @@ class TournamentUI {
         this.renderMatches();
         this.renderLeaderboard();
         this.updateHeaderProgress();
+        this._refreshTvModeIfActive();
         // Scroll suave para o topo da seção de jogos
         const matchesSection = document.getElementById('view-single-round');
         if (matchesSection) {
@@ -1493,6 +1514,419 @@ class TournamentUI {
   closeMatchupModal() {
     const modal = document.getElementById('modal-matchup-details');
     if (modal) modal.style.display = 'none';
+  }
+
+  /* ─── MODO TV / TELÃO: MINI CARDS & DASHBOARD ───────── */
+
+  initTvModeEvents() {
+    if (this._tvModeEventsDone) return;
+    this._tvModeEventsDone = true;
+
+    // Alternador de visualização na TV (Mini Cards / Classificação / Dividir Tela)
+    document.querySelectorAll('.btn-tv-view').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const view = e.currentTarget.dataset.view;
+        this.setTvView(view);
+      });
+    });
+
+    // Filtros de confrontos na TV (Todos / Realizados / Por Acontecer)
+    document.querySelectorAll('.tv-filter-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const filter = e.currentTarget.dataset.filter;
+        this.setTvFilter(filter);
+      });
+    });
+
+    // Botão Sair do Modo TV no topo
+    const btnExit = document.getElementById('btn-tv-exit-top');
+    if (btnExit) {
+      btnExit.addEventListener('click', () => {
+        this.toggleTvMode(false);
+      });
+    }
+
+    // Botão Tela Cheia
+    const btnFull = document.getElementById('btn-tv-fullscreen');
+    if (btnFull) {
+      btnFull.addEventListener('click', () => {
+        this.toggleTvFullscreen();
+      });
+    }
+
+    // Tecla ESC para sair do Modo TV
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && document.body.classList.contains('tv-mode')) {
+        this.toggleTvMode(false);
+      }
+    });
+
+    // Atualizar texto do botão Tela Cheia ao alterar fullscreen
+    document.addEventListener('fullscreenchange', () => {
+      const btn = document.getElementById('btn-tv-fullscreen');
+      if (btn) {
+        btn.innerHTML = document.fullscreenElement ? '🗗 Restaurar' : '⛶ Tela Cheia';
+      }
+    });
+  }
+
+  toggleTvMode(forceState) {
+    const isCurrentlyTv = document.body.classList.contains('tv-mode');
+    const willBeTv = typeof forceState === 'boolean' ? forceState : !isCurrentlyTv;
+
+    const btn = document.getElementById('btn-tv-mode');
+    const tvDashboard = document.getElementById('tv-mode-dashboard');
+
+    if (willBeTv) {
+      document.body.classList.add('tv-mode');
+      if (btn) {
+        btn.classList.replace('btn-secondary', 'btn-primary');
+        btn.innerHTML = '<span class="btn-icon">✖</span> Sair Telão';
+      }
+      if (tvDashboard) {
+        tvDashboard.style.display = 'flex';
+      }
+      // Garantir que começamos visualizando os confrontos em mini cards conforme solicitado
+      this.setTvView(this._tvView || 'matches');
+      this.renderTvMode();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      document.body.classList.remove('tv-mode');
+      if (btn) {
+        btn.classList.replace('btn-primary', 'btn-secondary');
+        btn.innerHTML = '<span class="btn-icon">📺</span> Modo TV';
+      }
+      if (tvDashboard) {
+        tvDashboard.style.display = 'none';
+      }
+      if (document.fullscreenElement) {
+        try { document.exitFullscreen(); } catch(e) {}
+      }
+      // Re-renderizar abas padrão para assegurar estado consistente
+      this.renderMatches();
+      this.renderLeaderboard();
+    }
+  }
+
+  toggleTvFullscreen() {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      }
+    }
+  }
+
+  setTvView(view) {
+    this._tvView = view;
+    document.querySelectorAll('.btn-tv-view').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.view === view);
+    });
+
+    const bodyContainer = document.getElementById('tv-body-container');
+    const paneMatches = document.getElementById('tv-section-matches');
+    const paneLeaderboard = document.getElementById('tv-section-leaderboard');
+
+    if (!bodyContainer || !paneMatches || !paneLeaderboard) return;
+
+    if (view === 'split') {
+      bodyContainer.classList.add('split-mode');
+      paneMatches.style.display = 'flex';
+      paneLeaderboard.style.display = 'flex';
+      this.renderTvLeaderboard();
+      this.renderTvMiniCards(this._tvFilter || 'all');
+    } else if (view === 'leaderboard') {
+      bodyContainer.classList.remove('split-mode');
+      paneMatches.style.display = 'none';
+      paneLeaderboard.style.display = 'flex';
+      this.renderTvLeaderboard();
+    } else {
+      // Padrão: 'matches' (Todos os confrontos em mini cards)
+      bodyContainer.classList.remove('split-mode');
+      paneMatches.style.display = 'flex';
+      paneLeaderboard.style.display = 'none';
+      this.renderTvMiniCards(this._tvFilter || 'all');
+    }
+  }
+
+  setTvFilter(filter) {
+    this._tvFilter = filter;
+    document.querySelectorAll('.tv-filter-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.filter === filter);
+    });
+    this.renderTvMiniCards(filter);
+  }
+
+  renderTvMode() {
+    const active = this.sm.getActiveTournament();
+    const titleEl = document.getElementById('tv-main-title');
+    const subtitleEl = document.getElementById('tv-main-subtitle');
+
+    if (active) {
+      const { TOURNAMENT_FORMATS, CATEGORIES } = window.TournamentConfig;
+      const fmt = (TOURNAMENT_FORMATS && TOURNAMENT_FORMATS[active.format]) || {};
+      const cat = (CATEGORIES && CATEGORIES.find(c => c.id === active.category)) || {};
+      const g = active.gender || 'masculino';
+      const genderLabel = g === 'feminino' ? 'Feminino' : g === 'misto' ? 'Misto' : 'Masculino';
+
+      if (titleEl) titleEl.textContent = active.title || 'SUPER BT';
+      if (subtitleEl) subtitleEl.textContent = (fmt.name || 'Torneio') + ' · ' + (cat.label || '') + ' · ' + genderLabel + ' · DB Eventos';
+    }
+
+    const rounds = this.sm.state.rounds || [];
+    let totalMatches = 0;
+    let finishedMatches = 0;
+
+    rounds.forEach(rd => {
+      (rd.matches || []).forEach(m => {
+        if (!m.isByeMatch) {
+          totalMatches++;
+          if (m.finished) finishedMatches++;
+        }
+      });
+    });
+
+    const pendingMatches = Math.max(0, totalMatches - finishedMatches);
+
+    // Atualizar contadores
+    const countTotal = document.getElementById('tv-count-total');
+    const countFin = document.getElementById('tv-count-finished');
+    const countPend = document.getElementById('tv-count-pending');
+    const filterTotal = document.getElementById('tv-filter-total');
+    const filterFin = document.getElementById('tv-filter-finished');
+    const filterPend = document.getElementById('tv-filter-pending');
+
+    if (countTotal) countTotal.textContent = totalMatches;
+    if (countFin) countFin.textContent = finishedMatches;
+    if (countPend) countPend.textContent = pendingMatches;
+    if (filterTotal) filterTotal.textContent = totalMatches;
+    if (filterFin) filterFin.textContent = finishedMatches;
+    if (filterPend) filterPend.textContent = pendingMatches;
+
+    // Renderizar a visualização ativa
+    if (this._tvView === 'leaderboard') {
+      this.renderTvLeaderboard();
+    } else if (this._tvView === 'split') {
+      this.renderTvMiniCards(this._tvFilter || 'all');
+      this.renderTvLeaderboard();
+    } else {
+      this.renderTvMiniCards(this._tvFilter || 'all');
+    }
+  }
+
+  renderTvMiniCards(filter = 'all') {
+    const stream = document.getElementById('tv-rounds-stream');
+    if (!stream) return;
+
+    const rounds = this.sm.state.rounds || [];
+    if (!this.sm.state.started || !rounds.length) {
+      stream.innerHTML =
+        '<div style="grid-column: 1 / -1; text-align: center; padding: 4rem 1.5rem; background: rgba(15,23,42,0.6); border-radius: 16px; border: 1px dashed rgba(255,255,255,0.12);">' +
+          '<span style="font-size: 2.5rem; display: block; margin-bottom: 0.85rem;">⏳</span>' +
+          '<h3 style="color: #ffffff; font-size: 1.35rem; margin-bottom: 0.5rem;">Torneio ainda não iniciado</h3>' +
+          '<p style="color: var(--text-secondary); max-width: 500px; margin: 0 auto;">Cadastre os participantes e inicie o torneio para exibir todos os confrontos em tempo real no telão.</p>' +
+        '</div>';
+      return;
+    }
+
+    const { TOURNAMENT_FORMATS } = window.TournamentConfig;
+    const fmt = (TOURNAMENT_FORMATS && TOURNAMENT_FORMATS[this.sm.state.format]) || {};
+    const category = this.sm.state.category;
+    const currentRound = this.sm.state.currentRound || 1;
+
+    let roundsHtml = '';
+
+    rounds.forEach(rd => {
+      const allDone = rd.matches.length > 0 && rd.matches.every(m => m.finished || m.isByeMatch);
+      const hasFinished = rd.matches.some(m => m.finished);
+
+      const statusText = allDone ? '✓ Concluída' : (hasFinished ? '⚡ Em Jogo' : '⏳ A Disputar');
+      const statusClass = allDone ? 'concluida' : (hasFinished ? 'em-andamento' : 'pendente');
+
+      let matchesList = rd.matches || [];
+      if (filter === 'finished') {
+        matchesList = matchesList.filter(m => !!m.finished && !m.isByeMatch);
+      } else if (filter === 'pending') {
+        matchesList = matchesList.filter(m => !m.finished && !m.isByeMatch);
+      }
+
+      if (filter !== 'all' && matchesList.length === 0) {
+        return;
+      }
+
+      let miniCardsHtml = '';
+      matchesList.forEach(m => {
+        if (m.isByeMatch) return;
+
+        const isFin = !!m.finished;
+        const winnerA = isFin && m.scoreA > m.scoreB;
+        const winnerB = isFin && m.scoreB > m.scoreA;
+
+        const teamALabel = this._teamLabel(m.teamA, category, fmt);
+        const teamBLabel = this._teamLabel(m.teamB, category, fmt);
+
+        miniCardsHtml +=
+          '<div class="tv-mini-card ' + (isFin ? 'is-finished' : 'is-pending') + '" data-status="' + (isFin ? 'finished' : 'pending') + '">' +
+            '<div class="tv-mini-card-header">' +
+              '<span class="tv-mini-court-pill">' + (m.court || 'Quadra') + '</span>' +
+              '<span class="tv-mini-status-badge ' + (isFin ? 'status-finished' : 'status-pending') + '">' +
+                (isFin ? '✓ Realizado' : '⏳ Por Acontecer') +
+              '</span>' +
+            '</div>' +
+            '<div class="tv-mini-card-body">' +
+              '<div class="tv-mini-team team-a ' + (winnerA ? 'is-winner' : '') + ' ' + (isFin ? 'has-finished' : '') + '">' +
+                '<span class="tv-mini-team-names">' + teamALabel + '</span>' +
+                (winnerA ? '<span class="tv-winner-tag">🏆 Vitória</span>' : '') +
+              '</div>' +
+              '<div class="tv-mini-score-wrap">' +
+                (isFin ?
+                  ('<div class="tv-mini-score-box finished">' +
+                    '<span class="tv-score-num ' + (winnerA ? 'win' : '') + '">' + m.scoreA + '</span>' +
+                    '<span class="tv-score-divider">&times;</span>' +
+                    '<span class="tv-score-num ' + (winnerB ? 'win' : '') + '">' + m.scoreB + '</span>' +
+                  '</div>') :
+                  ('<div class="tv-mini-score-box pending">' +
+                    '<span class="tv-vs-badge">VS</span>' +
+                  '</div>')
+                ) +
+              '</div>' +
+              '<div class="tv-mini-team team-b ' + (winnerB ? 'is-winner' : '') + ' ' + (isFin ? 'has-finished' : '') + '">' +
+                '<span class="tv-mini-team-names">' + teamBLabel + '</span>' +
+                (winnerB ? '<span class="tv-winner-tag">🏆 Vitória</span>' : '') +
+              '</div>' +
+            '</div>' +
+          '</div>';
+      });
+
+      let byeHtml = '';
+      if (rd.byePlayers && rd.byePlayers.length > 0 && filter === 'all') {
+        const byeNames = rd.byePlayers.map(p => p.name).join(', ');
+        byeHtml = '<div class="tv-round-bye">💤 Folga: <strong>' + byeNames + '</strong></div>';
+      }
+
+      roundsHtml +=
+        '<div class="tv-round-card">' +
+          '<div class="tv-round-header">' +
+            '<div class="tv-round-title-wrap">' +
+              '<span class="tv-round-badge">R' + rd.round + '</span>' +
+              '<h3 class="tv-round-title">Rodada ' + rd.round + '</h3>' +
+            '</div>' +
+            '<span class="tv-round-status-pill ' + statusClass + '">' + statusText + '</span>' +
+          '</div>' +
+          byeHtml +
+          '<div class="tv-mini-cards-list">' +
+            miniCardsHtml +
+          '</div>' +
+        '</div>';
+    });
+
+    if (!roundsHtml) {
+      stream.innerHTML =
+        '<div style="grid-column: 1 / -1; text-align: center; padding: 3rem 1rem; color: var(--text-secondary);">' +
+          '<p>Nenhum confronto encontrado para o filtro selecionado.</p>' +
+        '</div>';
+    } else {
+      stream.innerHTML = roundsHtml;
+    }
+  }
+
+  renderTvLeaderboard() {
+    const container = document.getElementById('tv-leaderboard-container');
+    if (!container) return;
+
+    const { TOURNAMENT_FORMATS } = window.TournamentConfig;
+    const fmt = (TOURNAMENT_FORMATS && TOURNAMENT_FORMATS[this.sm.state.format]) || {};
+    const isMixed = !!fmt.isMixed;
+
+    if (isMixed) {
+      const { men, women } = this.sm.getMixedLeaderboards();
+      container.innerHTML =
+        '<div class="leaderboard-dual-grid" style="grid-template-columns: 1fr 1fr; gap: 1.25rem;">' +
+          '<div class="dual-column">' +
+            '<div class="dual-column-header men-header">' +
+              '<span class="gender-badge men">👨 Masculino</span>' +
+            '</div>' +
+            '<div class="podium-wrapper podium-compact" id="tv-podium-men"></div>' +
+            '<div class="card table-card">' +
+              '<table class="leaderboard-table">' +
+                '<thead>' +
+                  '<tr>' +
+                    '<th class="text-center">#</th>' +
+                    '<th>Atleta</th>' +
+                    '<th class="text-center">PJ</th>' +
+                    '<th class="text-center">V</th>' +
+                    '<th class="text-center">D</th>' +
+                    '<th class="text-center">GP</th>' +
+                    '<th class="text-center">GC</th>' +
+                    '<th class="text-center">SG</th>' +
+                    '<th class="text-center">%</th>' +
+                  '</tr>' +
+                '</thead>' +
+                '<tbody id="tv-leaderboard-body-men"></tbody>' +
+              '</table>' +
+            '</div>' +
+          '</div>' +
+          '<div class="dual-column">' +
+            '<div class="dual-column-header women-header">' +
+              '<span class="gender-badge women">👩 Feminino</span>' +
+            '</div>' +
+            '<div class="podium-wrapper podium-compact" id="tv-podium-women"></div>' +
+            '<div class="card table-card">' +
+              '<table class="leaderboard-table">' +
+                '<thead>' +
+                  '<tr>' +
+                    '<th class="text-center">#</th>' +
+                    '<th>Atleta</th>' +
+                    '<th class="text-center">PJ</th>' +
+                    '<th class="text-center">V</th>' +
+                    '<th class="text-center">D</th>' +
+                    '<th class="text-center">GP</th>' +
+                    '<th class="text-center">GC</th>' +
+                    '<th class="text-center">SG</th>' +
+                    '<th class="text-center">%</th>' +
+                  '</tr>' +
+                '</thead>' +
+                '<tbody id="tv-leaderboard-body-women"></tbody>' +
+              '</table>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      this._renderPodium('tv-podium-men', men);
+      this._renderPodium('tv-podium-women', women);
+      this._renderTable('tv-leaderboard-body-men', men);
+      this._renderTable('tv-leaderboard-body-women', women);
+    } else {
+      const list = this.sm.getLeaderboard();
+      container.innerHTML =
+        '<div class="podium-wrapper" id="tv-podium-single"></div>' +
+        '<div class="card table-card">' +
+          '<table class="leaderboard-table">' +
+            '<thead>' +
+              '<tr>' +
+                '<th class="text-center">#</th>' +
+                '<th>Atleta</th>' +
+                '<th class="text-center">PJ</th>' +
+                '<th class="text-center">V</th>' +
+                '<th class="text-center">D</th>' +
+                '<th class="text-center">GP</th>' +
+                '<th class="text-center">GC</th>' +
+                '<th class="text-center">SG</th>' +
+                '<th class="text-center">%</th>' +
+              '</tr>' +
+            '</thead>' +
+            '<tbody id="tv-leaderboard-body-single"></tbody>' +
+          '</table>' +
+        '</div>';
+      this._renderPodium('tv-podium-single', list);
+      this._renderTable('tv-leaderboard-body-single', list);
+    }
+  }
+
+  _refreshTvModeIfActive() {
+    if (document.body.classList.contains('tv-mode')) {
+      this.renderTvMode();
+    }
   }
 }
 

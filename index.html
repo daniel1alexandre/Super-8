@@ -94,6 +94,18 @@
     <div class="sel-bg-glow sel-glow-3"></div>
 
     <div class="sel-container">
+      <!-- Barra Superior com Usuário e Sair do Sistema -->
+      <div class="sel-top-nav">
+        <div class="user-badge" id="sel-user-badge">
+          <span class="user-badge-avatar" id="sel-user-badge-avatar">?</span>
+          <span id="sel-user-badge-name"></span>
+          <span class="user-badge-role" id="sel-user-badge-role"></span>
+        </div>
+        <button type="button" class="btn-logout" id="btn-sel-logout" title="Sair do sistema">
+          🚪 Sair do Sistema
+        </button>
+      </div>
+
       <div class="sel-brand">
         <div class="sel-logo-wrap">
           <img src="src/assets/db-eventos-logo.jpg" alt="DB Eventos - Gerenciamento de Torneios" class="sel-brand-img" />
@@ -234,6 +246,101 @@
     </header>
 
     <main class="main-content">
+      <!-- PAINEL EXCLUSIVO MODO TV / TELÃO (Confrontos em Mini Cards + Classificação) -->
+      <div id="tv-mode-dashboard" class="tv-mode-dashboard" style="display: none;">
+        <!-- Barra de Controle e Status do Telão -->
+        <div class="tv-control-bar">
+          <div class="tv-brand-info">
+            <div class="tv-live-indicator">
+              <span class="tv-pulse-dot"></span>
+              <span class="tv-live-tag">MODO TV · TELÃO</span>
+            </div>
+            <div class="tv-headings">
+              <h2 class="tv-main-title" id="tv-main-title">SUPER 8</h2>
+              <span class="tv-main-subtitle" id="tv-main-subtitle">DB Eventos · Todos os Confrontos</span>
+            </div>
+          </div>
+
+          <!-- Métricas Rápidas: Total, Realizados (Destaque Verde), A Acontecer (Destaque Âmbar) -->
+          <div class="tv-metrics-bar">
+            <div class="tv-metric-chip metric-total">
+              <span class="tv-chip-icon">⚔️</span>
+              <div class="tv-chip-text">
+                <span class="tv-chip-num" id="tv-count-total">0</span>
+                <span class="tv-chip-lbl">Confrontos</span>
+              </div>
+            </div>
+            <div class="tv-metric-chip metric-finished">
+              <span class="tv-chip-icon">✅</span>
+              <div class="tv-chip-text">
+                <span class="tv-chip-num" id="tv-count-finished">0</span>
+                <span class="tv-chip-lbl">Realizados</span>
+              </div>
+            </div>
+            <div class="tv-metric-chip metric-pending">
+              <span class="tv-chip-icon">⏳</span>
+              <div class="tv-chip-text">
+                <span class="tv-chip-num" id="tv-count-pending">0</span>
+                <span class="tv-chip-lbl">Por Acontecer</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Alternador de Visão no Modo TV & Botões de Ação -->
+          <div class="tv-toolbar-actions">
+            <div class="tv-view-switch-group">
+              <button type="button" class="btn-tv-view active" id="btn-tv-view-matches" data-view="matches" title="Ver todos os confrontos em mini cards">
+                ⚔️ Mini Cards
+              </button>
+              <button type="button" class="btn-tv-view" id="btn-tv-view-leaderboard" data-view="leaderboard" title="Ver classificação geral">
+                🏆 Classificação
+              </button>
+              <button type="button" class="btn-tv-view" id="btn-tv-view-split" data-view="split" title="Ver tela dividida (Confrontos + Classificação)">
+                📺 Dividir Tela
+              </button>
+            </div>
+            <button type="button" class="btn-tv-action btn-tv-fullscreen" id="btn-tv-fullscreen" title="Alternar tela cheia">
+              ⛶ Tela Cheia
+            </button>
+            <button type="button" class="btn-tv-action btn-tv-close" id="btn-tv-exit-top" title="Sair do Modo TV">
+              ✖ Sair Telão
+            </button>
+          </div>
+        </div>
+
+        <!-- Área de Conteúdo TV -->
+        <div class="tv-body-container" id="tv-body-container">
+          <!-- PAINEL 1: Confrontos em Mini Cards -->
+          <div class="tv-section-pane tv-pane-matches active" id="tv-section-matches">
+            <div class="tv-filter-subbar">
+              <div class="tv-filter-buttons">
+                <button type="button" class="tv-filter-btn active" data-filter="all" id="tv-btn-filter-all">
+                  Todos os Confrontos (<span id="tv-filter-total">0</span>)
+                </button>
+                <button type="button" class="tv-filter-btn filter-finished" data-filter="finished" id="tv-btn-filter-finished">
+                  <span class="status-dot dot-green"></span> Realizados (<span id="tv-filter-finished">0</span>)
+                </button>
+                <button type="button" class="tv-filter-btn filter-pending" data-filter="pending" id="tv-btn-filter-pending">
+                  <span class="status-dot dot-amber"></span> Por Acontecer (<span id="tv-filter-pending">0</span>)
+                </button>
+              </div>
+              <div class="tv-legend-tags">
+                <span class="tv-legend-pill pill-finished"><span class="legend-color-box bg-finished"></span> Realizado</span>
+                <span class="tv-legend-pill pill-pending"><span class="legend-color-box bg-pending"></span> Por Acontecer</span>
+              </div>
+            </div>
+
+            <!-- Grade Dinâmica de Rodadas com Mini Cards -->
+            <div class="tv-rounds-stream" id="tv-rounds-stream"></div>
+          </div>
+
+          <!-- PAINEL 2: Classificação & Pódio -->
+          <div class="tv-section-pane tv-pane-leaderboard" id="tv-section-leaderboard" style="display:none;">
+            <div class="tv-leaderboard-container" id="tv-leaderboard-container"></div>
+          </div>
+        </div>
+      </div>
+
       <section id="tab-setup" class="tab-pane active">
         <div class="card setup-card">
           <div class="card-header">
@@ -262,12 +369,17 @@
       <section id="tab-matches" class="tab-pane">
         <!-- Alternador de Modo: Rodada por Rodada vs Esboço com Todas as Rodadas -->
         <div class="matches-sub-nav">
-          <div class="matches-mode-toggle">
-            <button type="button" class="btn-mode-toggle active" id="btn-mode-single-round" data-mode="single">
-              🎯 Rodada por Rodada
-            </button>
-            <button type="button" class="btn-mode-toggle" id="btn-mode-all-rounds" data-mode="all">
-              📋 Esboço com Todas as Rodadas
+          <div class="matches-mode-toggle-group">
+            <div class="matches-mode-toggle">
+              <button type="button" class="btn-mode-toggle active" id="btn-mode-single-round" data-mode="single">
+                🎯 Rodada por Rodada
+              </button>
+              <button type="button" class="btn-mode-toggle" id="btn-mode-all-rounds" data-mode="all">
+                📋 Esboço com Todas as Rodadas
+              </button>
+            </div>
+            <button type="button" class="btn-clear-matches" id="btn-clear-matches" title="Limpar todos os resultados e reiniciar o torneio mantendo os mesmos atletas">
+              <span class="btn-icon">🔄</span> Limpar
             </button>
           </div>
         </div>
@@ -627,6 +739,26 @@
       <div class="modal-footer">
         <button type="button" id="btn-abort-delete" class="btn btn-secondary">Não, Manter Torneio</button>
         <button type="button" id="btn-execute-delete" class="btn btn-danger">🗑️ Sim, Excluir Torneio</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Limpar Resultados e Reiniciar Torneio -->
+  <div class="modal-overlay" id="modal-confirm-reset" style="display:none;">
+    <div class="modal-content modal-confirm-content">
+      <div class="modal-header">
+        <h3 class="modal-title" style="color: #f59e0b;">🔄 Limpar Resultados e Reiniciar</h3>
+        <button class="btn-close" id="btn-close-reset-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-warning-text">Deseja realmente limpar todos os resultados e reiniciar o torneio?</p>
+        <p class="modal-warning-subtext">
+          Todos os <strong>mesmos atletas cadastrados serão mantidos</strong>. Todos os placares e resultados serão zerados e o torneio voltará para a <strong>Rodada 1</strong>.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="btn-abort-reset" class="btn btn-secondary">Não, Manter Resultados</button>
+        <button type="button" id="btn-execute-reset" class="btn btn-warning" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: #ffffff; border: none; font-weight: 700; cursor: pointer; padding: 0.65rem 1.25rem; border-radius: 8px;">🔄 Sim, Limpar e Reiniciar</button>
       </div>
     </div>
   </div>

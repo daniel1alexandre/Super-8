@@ -203,6 +203,23 @@ class TournamentStateManager {
     this.saveState();
   }
 
+  resetTournamentResults() {
+    const active = this.getActiveTournament();
+    if (!active || !active.rounds) return;
+    active.rounds.forEach(ro => {
+      (ro.matches || []).forEach(m => {
+        m.scoreA = 0;
+        m.scoreB = 0;
+        m.finished = false;
+        m.isEditing = false;
+      });
+    });
+    active.currentRound = 1;
+    active.started = true;
+    active.phase = 'playing';
+    this.saveState();
+  }
+
   updateMatchScore(roundNumber, matchId, scoreA, scoreB) {
     const active = this.getActiveTournament();
     if (!active || !active.rounds) return;
