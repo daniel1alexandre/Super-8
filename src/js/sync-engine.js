@@ -1,11 +1,12 @@
 /**
- * SUPER BEACH TENNIS — MOTOR DE SINCRONIZAÇÃO EM TEMPO REAL (MULTI-APARELHOS)
- * Sincroniza simultaneamente alterações entre celulares, tablets, notebooks e TVs.
+ * SUPER BEACH TENNIS — MOTOR DE SINCRONIZAÇÃO EM TEMPO REAL (FIREBASE + LOCAL)
+ * Sincroniza simultaneamente entre aparelhos na Vercel (via Firebase) ou em rede local (via WebSocket).
  */
 
 class SyncEngine {
   constructor() {
     this.clientId = 'client_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+    this.mode = 'idle'; // 'firebase' | 'local'
     this.ws = null;
     this.status = 'disconnected'; // 'connected' | 'reconnecting' | 'offline'
     this.connectedClients = 1;
@@ -13,40 +14,136 @@ class SyncEngine {
     this.maxReconnectDelay = 10000;
     this.heartbeatTimer = null;
     this.serverInfo = null;
+    this._hasInitialSync = false;
     this._listeners = {};
 
-    // Inicia conexão assim que o script for carregado
     this.init();
   }
 
-  /* ─── INICIALIZAÇÃO & CONEXÃO ───────────────────────── */
+  /* ─── INICIALIZAÇÃO ─────────────────────────────────── */
 
   init() {
+    // 1. Tenta inicializar via Firebase Realtime Database (ideal para Vercel e Nuvem)
+    if (window.FirebaseConfig && window.FirebaseConfig.isReady()) {
+      this.initFirebase();
+      return;
+    }
+
+    // 2. Se não houver Firebase configurado e estiver rodando em servidor HTTP local
+    if (window.location.protocol.startsWith('http')) {
+      this.initLocalServer();
+    } else {
+      this.updateStatus('offline');
+    }
+
+    // Detecta retorno de aba ou conexão
+    window.addEventListener('online', () => {
+      if (this.status !== 'connected') this.reconnect();
+    });
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && this.status !== 'connected') {
+        this.reconnect();
+      }
+    });
+  }
+
+  reconnect() {
+    if (this.mode === 'firebase') {
+      if (window.firebaseDb) this.updateStatus('connected');
+    } else if (this.mode === 'local') {
+      this.connectWebSocket();
+    }
+  }
+
+  /* ─── MODO NUVEM: FIREBASE REALTIME DATABASE ───────── */
+
+  initFirebase() {
+    this.mode = 'firebase';
+    const db = window.firebaseDb;
+    if (!db) return;
+
+    this.updateStatus('connected');
+
+    // ── Rastreamento de Presença (Contador de aparelhos conectados) ──
+    const presenceRef = db.ref('superbt/presence/' + this.clientId);
+    const connectedRef = db.ref('.info/connected');
+
+    connectedRef.on('value', (snap) => {
+      if (snap.val() === true) {
+        presenceRef.onDisconnect().remove();
+        presenceRef.set({
+          clientId: this.clientId,
+          onlineAt: Date.now()
+        });
+        this.updateStatus('connected');
+      } else {
+        this.updateStatus('reconnecting');
+      }
+    });
+
+    const allPresenceRef = db.ref('superbt/presence');
+    allPresenceRef.on('value', (snap) => {
+      const val = snap.val();
+      const count = val ? Object.keys(val).length : 1;
+      this.updateClientCount(count);
+    });
+
+    // ── Escuta de Torneios em Tempo Real ───────────────
+    const tournRef = db.ref('superbt/tournaments');
+    tournRef.on('value', (snapshot) => {
+      const payload = snapshot.val();
+      if (payload && payload.state) {
+        // Ignora eco enviado por este próprio aparelho
+        if (payload.senderId === this.clientId) return;
+
+        window.dispatchEvent(new CustomEvent('superbt:remote-sync', {
+          detail: {
+            state: payload.state,
+            timestamp: payload.timestamp,
+            senderId: payload.senderId,
+            isInitial: !this._hasInitialSync
+          }
+        }));
+        this._hasInitialSync = true;
+      }
+    });
+
+    // ── Escuta de Usuários em Tempo Real ────────────────
+    const authRef = db.ref('superbt/auth');
+    authRef.on('value', (snapshot) => {
+      const payload = snapshot.val();
+      if (payload && payload.authData) {
+        if (payload.senderId === this.clientId) return;
+
+        window.dispatchEvent(new CustomEvent('superbt:auth-sync', {
+          detail: {
+            authData: payload.authData,
+            timestamp: payload.timestamp,
+            senderId: payload.senderId,
+            isInitial: true
+          }
+        }));
+      }
+    });
+  }
+
+  /* ─── MODO LOCAL: WEBSOCKET & REST NO SERVER.JS ────── */
+
+  initLocalServer() {
+    this.mode = 'local';
     this.fetchServerInfo().then(() => {
       this.connectWebSocket();
     }).catch(() => {
       this.connectWebSocket();
     });
-
-    // Detecta retorno da aba / reconexão do dispositivo
-    window.addEventListener('online', () => {
-      if (this.status !== 'connected') this.connectWebSocket();
-    });
-
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && this.status !== 'connected') {
-        this.connectWebSocket();
-      }
-    });
   }
 
   getWsUrl() {
-    // Se aberto via HTTP/HTTPS no servidor
     if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
       const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       return `${proto}//${window.location.host}/ws`;
     }
-    // Se aberto como file:// local, tenta porta padrão 3000
     return 'ws://localhost:3000/ws';
   }
 
@@ -71,9 +168,7 @@ class SyncEngine {
         try {
           const msg = JSON.parse(event.data);
           this.handleIncomingMessage(msg);
-        } catch (err) {
-          console.error('[SyncEngine] Erro ao parsear mensagem:', err);
-        }
+        } catch (err) {}
       };
 
       this.ws.onclose = () => {
@@ -95,7 +190,7 @@ class SyncEngine {
     this.reconnectAttempts++;
     const delay = Math.min(1000 * Math.pow(1.5, this.reconnectAttempts), this.maxReconnectDelay);
     setTimeout(() => {
-      this.connectWebSocket();
+      if (this.mode === 'local') this.connectWebSocket();
     }, delay);
   }
 
@@ -115,35 +210,9 @@ class SyncEngine {
     }
   }
 
-  /* ─── STATUS & EVENTOS ──────────────────────────────── */
-
-  updateStatus(newStatus) {
-    if (this.status !== newStatus) {
-      this.status = newStatus;
-      this.emit('status-change', { status: this.status, clients: this.connectedClients });
-      window.dispatchEvent(new CustomEvent('superbt:sync-status', {
-        detail: { status: this.status, clients: this.connectedClients }
-      }));
-    }
-  }
-
-  updateClientCount(count) {
-    this.connectedClients = Math.max(1, count);
-    this.emit('client-count', { clients: this.connectedClients });
-    window.dispatchEvent(new CustomEvent('superbt:sync-clients', {
-      detail: { count: this.connectedClients }
-    }));
-  }
-
-  /* ─── TRATAMENTO DE MENSAGENS RECEBIDAS ─────────────── */
-
   handleIncomingMessage(msg) {
     if (!msg || typeof msg !== 'object') return;
-
-    // Ignora eco de mensagens enviadas por este mesmo aparelho
-    if (msg.senderId && msg.senderId === this.clientId) {
-      return;
-    }
+    if (msg.senderId && msg.senderId === this.clientId) return;
 
     switch (msg.type) {
       case 'init_sync':
@@ -181,55 +250,63 @@ class SyncEngine {
           this.updateClientCount(msg.count);
         }
         break;
-
-      case 'pong':
-        // Heartbeat mantido
-        break;
     }
   }
 
-  /* ─── ENVIO DE ATUALIZAÇÕES ─────────────────────────── */
+  /* ─── ENVIO DE DADOS (TRANSPARENTE PARA OS DOIS MODOS) ─ */
 
   sendStateUpdate(state) {
     const payload = {
-      type: 'state_update',
       state: state,
       senderId: this.clientId,
       timestamp: Date.now()
     };
 
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+    // 1. Envia para o Firebase se estiver ativo
+    if (this.mode === 'firebase' && window.firebaseDb) {
       try {
-        this.ws.send(JSON.stringify(payload));
+        window.firebaseDb.ref('superbt/tournaments').set(payload);
         return;
-      } catch (err) {
-        console.warn('[SyncEngine] Falha ao enviar via WS, tentando HTTP fallback...', err);
+      } catch (e) {
+        console.warn('[SyncEngine] Erro ao gravar no Firebase:', e);
       }
     }
 
-    // Fallback REST POST
+    // 2. Envia para o WebSocket local
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      try {
+        this.ws.send(JSON.stringify({ type: 'state_update', ...payload }));
+        return;
+      } catch (err) {}
+    }
+
+    // 3. Fallback REST POST
     if (window.location.protocol.startsWith('http')) {
       fetch('/api/state', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
-      }).catch(err => {
-        console.warn('[SyncEngine] Falha no fallback HTTP /api/state:', err);
-      });
+      }).catch(() => {});
     }
   }
 
   sendAuthUpdate(authData) {
     const payload = {
-      type: 'auth_update',
-      data: authData,
+      authData: authData,
       senderId: this.clientId,
       timestamp: Date.now()
     };
 
+    if (this.mode === 'firebase' && window.firebaseDb) {
+      try {
+        window.firebaseDb.ref('superbt/auth').set(payload);
+        return;
+      } catch (e) {}
+    }
+
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       try {
-        this.ws.send(JSON.stringify(payload));
+        this.ws.send(JSON.stringify({ type: 'auth_update', data: authData, senderId: this.clientId }));
         return;
       } catch (err) {}
     }
@@ -238,12 +315,26 @@ class SyncEngine {
       fetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({ data: authData, senderId: this.clientId })
       }).catch(() => {});
     }
   }
 
-  /* ─── INFORMAÇÕES DO SERVIDOR & IP LOCAL ────────────── */
+  /* ─── STATUS & AUXILIARES ───────────────────────────── */
+
+  updateStatus(newStatus) {
+    this.status = newStatus;
+    window.dispatchEvent(new CustomEvent('superbt:sync-status', {
+      detail: { status: this.status, clients: this.connectedClients, mode: this.mode }
+    }));
+  }
+
+  updateClientCount(count) {
+    this.connectedClients = Math.max(1, count);
+    window.dispatchEvent(new CustomEvent('superbt:sync-clients', {
+      detail: { count: this.connectedClients, mode: this.mode }
+    }));
+  }
 
   async fetchServerInfo() {
     if (!window.location.protocol.startsWith('http')) return null;
@@ -258,36 +349,7 @@ class SyncEngine {
     } catch (e) {}
     return null;
   }
-
-  getShareableUrl() {
-    if (this.serverInfo && this.serverInfo.primaryUrl) {
-      return this.serverInfo.primaryUrl;
-    }
-    if (window.location.protocol.startsWith('http')) {
-      return window.location.origin;
-    }
-    return 'http://localhost:3000';
-  }
-
-  /* ─── SISTEMA SIMPLES DE EMISSÃO DE EVENTOS ─────────── */
-
-  on(event, cb) {
-    if (!this._listeners[event]) this._listeners[event] = [];
-    this._listeners[event].push(cb);
-  }
-
-  off(event, cb) {
-    if (!this._listeners[event]) return;
-    this._listeners[event] = this._listeners[event].filter(fn => fn !== cb);
-  }
-
-  emit(event, data) {
-    if (!this._listeners[event]) return;
-    this._listeners[event].forEach(cb => {
-      try { cb(data); } catch (e) {}
-    });
-  }
 }
 
-// Instanciação global única
+// Instância global única
 window.syncEngine = new SyncEngine();

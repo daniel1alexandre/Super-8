@@ -206,6 +206,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (name)   name.textContent = user.displayName || user.username;
     if (role)   { role.textContent = roleLabels[user.role] || user.role; role.className = "user-badge-role role-" + user.role; }
     if (adminBtn) adminBtn.style.display = user.role === "admin" ? "flex" : "none";
+    const adminFbBtn = document.getElementById("btn-admin-firebase");
+    if (adminFbBtn) adminFbBtn.style.display = user.role === "admin" ? "inline-flex" : "none";
 
     if (selAvatar) { selAvatar.textContent = initials; selAvatar.className = "user-badge-avatar role-" + user.role; }
     if (selName)   selName.textContent = user.displayName || user.username;
@@ -874,5 +876,138 @@ document.addEventListener("DOMContentLoaded", () => {
 
     ui.showToast("⚡ Placar atualizado simultaneamente por outro aparelho!", 2200);
   });
+
+  /* ══════════════════════════════════════════════════════
+     MODAL DE CONFIGURAÇÃO DA NUVEM FIREBASE
+  ══════════════════════════════════════════════════════ */
+
+  const modalFirebase       = document.getElementById("modal-firebase-config");
+  const btnCloseFirebase    = document.getElementById("btn-close-firebase-modal");
+  const btnCancelFirebase   = document.getElementById("btn-cancel-firebase");
+  const btnSaveFirebase     = document.getElementById("btn-save-firebase");
+  const btnOpenFirebase     = document.getElementById("btn-admin-firebase");
+  const textareaFirebase    = document.getElementById("textarea-firebase-config");
+  const firebaseStatusTxt   = document.getElementById("firebase-status-txt");
+  const firebaseStatusBanner = document.getElementById("firebase-status-banner");
+  const firebaseErrorMsg    = document.getElementById("firebase-error-msg");
+
+  function openFirebaseModal() {
+    const isReady = window.FirebaseConfig && window.FirebaseConfig.isReady();
+    if (firebaseStatusBanner && firebaseStatusTxt) {
+      if (isReady) {
+        firebaseStatusBanner.className = "firebase-status-banner";
+        firebaseStatusTxt.textContent = "🟢 Conectado à Nuvem Firebase Realtime Database";
+      } else {
+        firebaseStatusBanner.className = "firebase-status-banner unconfigured";
+        firebaseStatusTxt.textContent = "🟡 Aguardando Chaves de Conexão do Firebase";
+      }
+    }
+
+    if (textareaFirebase && window.FirebaseConfig) {
+      const cfg = window.FirebaseConfig.getConfig();
+      if (cfg && cfg.apiKey) {
+        textareaFirebase.value = JSON.stringify(cfg, null, 2);
+      } else {
+        textareaFirebase.value = "";
+      }
+    }
+    if (firebaseErrorMsg) firebaseErrorMsg.style.display = "none";
+    if (modalFirebase) modalFirebase.style.display = "flex";
+  }
+
+  function closeFirebaseModal() {
+    if (modalFirebase) modalFirebase.style.display = "none";
+  }
+
+  if (btnOpenFirebase) btnOpenFirebase.addEventListener("click", openFirebaseModal);
+  if (btnCloseFirebase) btnCloseFirebase.addEventListener("click", closeFirebaseModal);
+  if (btnCancelFirebase) btnCancelFirebase.addEventListener("click", closeFirebaseModal);
+  if (modalFirebase) modalFirebase.addEventListener("click", (e) => { if (e.target === modalFirebase) closeFirebaseModal(); });
+
+  // Abre ao clicar no pill se for admin
+  [document.getElementById("sync-status-pill"), document.getElementById("sel-sync-status-pill")].forEach(el => {
+    if (el) {
+      el.style.cursor = "pointer";
+      el.addEventListener("click", () => {
+        const u = auth.getCurrentUser();
+        if (u && u.role === "admin") openFirebaseModal();
+      });
+    }
+  });
+
+  function parseFirebaseConfigInput(text) {
+    text = text.trim();
+    if (!text) return null;
+
+    if (text.startsWith("{") && text.endsWith("}")) {
+      try { return JSON.parse(text); } catch (e) {}
+    }
+
+    try {
+      const match = text.match(/\{[\s\S]*\}/);
+      if (match) {
+        const objStr = match[0]
+          .replace(/([{,]\s*)([a-zA-Z0-9_]+)\s*:/g, '$1"$2":')
+          .replace(/'/g, '"')
+          .replace(/,\s*([}\]])/g, '$1');
+        return JSON.parse(objStr);
+      }
+    } catch (e) {}
+
+    const keys = ["apiKey", "authDomain", "databaseURL", "projectId", "storageBucket", "messagingSenderId", "appId"];
+    const extracted = {};
+    let found = 0;
+    keys.forEach(k => {
+      const re = new RegExp(`${k}["'\\s:]+([^"'\\s,]+)["']?`, "i");
+      const m = text.match(re);
+      if (m && m[1]) {
+        extracted[k] = m[1].replace(/["',;]/g, "");
+        found++;
+      }
+    });
+
+    if (found >= 2 && extracted.apiKey) {
+      return extracted;
+    }
+
+    return null;
+  }
+
+  if (btnSaveFirebase) {
+    btnSaveFirebase.addEventListener("click", () => {
+      const rawText = textareaFirebase ? textareaFirebase.value : "";
+      const parsed = parseFirebaseConfigInput(rawText);
+
+      if (!parsed || !parsed.apiKey) {
+        if (firebaseErrorMsg) {
+          firebaseErrorMsg.textContent = "⚠️ Não foi possível identificar as chaves do Firebase. Verifique o bloco colado.";
+          firebaseErrorMsg.style.display = "block";
+        }
+        return;
+      }
+
+      if (!parsed.databaseURL && parsed.projectId) {
+        parsed.databaseURL = `https://${parsed.projectId}-default-rtdb.firebaseio.com`;
+      }
+
+      if (window.FirebaseConfig) {
+        window.FirebaseConfig.saveConfig(parsed);
+        const db = window.FirebaseConfig.init();
+        if (db && window.syncEngine) {
+          window.syncEngine.init();
+          ui.showToast("☁️ Firebase conectado com sucesso! Sincronização em nuvem ativa.");
+          closeFirebaseModal();
+          if (sm && sm.data) {
+            window.syncEngine.sendStateUpdate(sm.data);
+          }
+        } else {
+          if (firebaseErrorMsg) {
+            firebaseErrorMsg.textContent = "⚠️ Chaves salvas, mas houve erro ao conectar ao banco. Verifique a databaseURL.";
+            firebaseErrorMsg.style.display = "block";
+          }
+        }
+      }
+    });
+  }
 
 });
