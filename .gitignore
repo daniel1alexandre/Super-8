@@ -1,0 +1,14 @@
+# Dependências
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Dados dinâmicos de torneios e autenticação
+data/*.json
+!data/.gitkeep
+
+# Arquivos do sistema
+.DS_Store
+Thumbs.db

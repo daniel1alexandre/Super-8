@@ -734,4 +734,178 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  /* ══════════════════════════════════════════════════════
+     SINCRONIZAÇÃO MULTI-APARELHOS EM TEMPO REAL
+  ══════════════════════════════════════════════════════ */
+
+  function updateSyncPillUI({ status, clients }) {
+    const pills = [
+      { pill: document.getElementById("sync-status-pill"), label: document.getElementById("sync-status-label"), badge: document.getElementById("sync-status-badge") },
+      { pill: document.getElementById("sel-sync-status-pill"), label: document.getElementById("sel-sync-status-label"), badge: document.getElementById("sel-sync-status-badge") }
+    ];
+
+    const count = clients || (window.syncEngine ? window.syncEngine.connectedClients : 1);
+    const countText = count > 1 ? `${count} aparelhos` : "1 aparelho";
+
+    pills.forEach(({ pill, label, badge }) => {
+      if (!pill) return;
+      pill.className = "sync-status-pill " + (status || "connected");
+      if (label) {
+        if (status === "connected") label.textContent = "Sincronizado";
+        else if (status === "reconnecting") label.textContent = "Reconectando...";
+        else label.textContent = "Offline";
+      }
+      if (badge) {
+        badge.textContent = count;
+        badge.title = countText + " conectado(s)";
+      }
+    });
+
+    const modalStatus = document.getElementById("connect-modal-status-text");
+    const modalClients = document.getElementById("connect-modal-clients-text");
+    if (modalStatus) {
+      modalStatus.textContent = status === "connected" ? "Servidor Ativo e Sincronizado" : (status === "reconnecting" ? "Reconectando ao Servidor..." : "Modo Offline");
+    }
+    if (modalClients) {
+      modalClients.textContent = countText + " conectado(s)";
+    }
+  }
+
+  window.addEventListener("superbt:sync-status", (e) => {
+    updateSyncPillUI(e.detail);
+  });
+
+  window.addEventListener("superbt:sync-clients", (e) => {
+    updateSyncPillUI({ status: window.syncEngine ? window.syncEngine.status : "connected", clients: e.detail.count });
+  });
+
+  // Atualização remota simultânea vinda de outro aparelho
+  window.addEventListener("superbt:state-changed", (e) => {
+    if (!appInitialized) return;
+
+    const isSelectionVisible = screenSelection && !screenSelection.classList.contains("sel-hidden");
+    if (isSelectionVisible) {
+      ui.renderActiveTournamentsList();
+      ui.updateActiveTournamentBanner();
+      ui.showToast("⚡ Torneios atualizados simultaneamente.", 2000);
+      return;
+    }
+
+    const activeTourn = sm.getActiveTournament();
+    if (!activeTourn) {
+      ui.goToSelection();
+      ui.showToast("ℹ️ O torneio atual foi encerrado ou excluído em outro aparelho.", 3000);
+      return;
+    }
+
+    // Atualiza cabeçalho e chaveador de torneios
+    ui.updateAppHeader();
+    ui.renderTournamentSwitcher();
+    ui.updateHeaderProgress();
+
+    // Detecta aba ativa
+    const activeTabBtn = document.querySelector(".main-tabs .tab-btn.active");
+    const activeTab = activeTabBtn ? activeTabBtn.dataset.tab : "matches";
+
+    if (activeTab === "matches") {
+      // Preserva foco se o usuário estiver digitando
+      const focusedEl = document.activeElement;
+      const isTyping = focusedEl && focusedEl.classList && focusedEl.classList.contains("score-input");
+      const focusedId = isTyping ? focusedEl.id : null;
+      const focusedVal = isTyping ? focusedEl.value : null;
+
+      ui.renderRoundsNav();
+      ui.renderMatches();
+
+      if (focusedId) {
+        const restoredInput = document.getElementById(focusedId);
+        if (restoredInput) {
+          restoredInput.value = focusedVal;
+          restoredInput.focus();
+        }
+      }
+    } else if (activeTab === "leaderboard") {
+      ui.renderLeaderboard();
+    } else if (activeTab === "matchups") {
+      if (ui._refreshMatchupsIfActive) ui._refreshMatchupsIfActive();
+    } else if (activeTab === "setup") {
+      const activeInput = document.activeElement;
+      const isEditingName = activeInput && activeInput.classList && activeInput.classList.contains("player-name-input");
+      if (!isEditingName) {
+        ui.renderPlayersSetup();
+      }
+    }
+
+    // Telão / Modo TV
+    if (ui._refreshTvModeIfActive) {
+      ui._refreshTvModeIfActive();
+    }
+
+    ui.showToast("⚡ Placar atualizado simultaneamente por outro aparelho!", 2200);
+  });
+
+  /* ── Modal Conectar Aparelhos (QR Code & Link) ────── */
+  const modalConnect = document.getElementById("modal-connect-devices");
+  const btnCloseConnect = document.getElementById("btn-close-connect-modal");
+  const btnDoneConnect = document.getElementById("btn-done-connect");
+  const btnCopyConnect = document.getElementById("btn-copy-connect-url");
+  const inputConnectUrl = document.getElementById("input-connect-url");
+  const qrContainer = document.getElementById("connect-qr-container");
+
+  function openConnectModal() {
+    const shareUrl = window.syncEngine ? window.syncEngine.getShareableUrl() : window.location.href;
+    if (inputConnectUrl) inputConnectUrl.value = shareUrl;
+
+    if (qrContainer && window.QRCode && window.QRCode.generateSVG) {
+      qrContainer.innerHTML = window.QRCode.generateSVG(shareUrl, {
+        size: 154,
+        darkColor: "#0f172a",
+        lightColor: "#ffffff"
+      });
+    }
+
+    updateSyncPillUI({
+      status: window.syncEngine ? window.syncEngine.status : "connected",
+      clients: window.syncEngine ? window.syncEngine.connectedClients : 1
+    });
+
+    if (modalConnect) modalConnect.style.display = "flex";
+  }
+
+  function closeConnectModal() {
+    if (modalConnect) modalConnect.style.display = "none";
+  }
+
+  const btnConnectApp = document.getElementById("btn-connect-devices");
+  if (btnConnectApp) btnConnectApp.addEventListener("click", openConnectModal);
+
+  const btnSelConnect = document.getElementById("btn-sel-connect-devices");
+  if (btnSelConnect) btnSelConnect.addEventListener("click", openConnectModal);
+
+  if (btnCloseConnect) btnCloseConnect.addEventListener("click", closeConnectModal);
+  if (btnDoneConnect) btnDoneConnect.addEventListener("click", closeConnectModal);
+  if (modalConnect) modalConnect.addEventListener("click", (e) => { if (e.target === modalConnect) closeConnectModal(); });
+
+  if (btnCopyConnect) {
+    btnCopyConnect.addEventListener("click", () => {
+      const url = inputConnectUrl ? inputConnectUrl.value : "";
+      if (!url) return;
+      navigator.clipboard.writeText(url).then(() => {
+        btnCopyConnect.textContent = "✓ Copiado!";
+        btnCopyConnect.classList.add("copied");
+        ui.showToast("📋 Link copiado! Abra no celular ou envie pelo WhatsApp.", 3000);
+        setTimeout(() => {
+          btnCopyConnect.textContent = "📋 Copiar Link";
+          btnCopyConnect.classList.remove("copied");
+        }, 2200);
+      }).catch(() => {
+        if (inputConnectUrl) {
+          inputConnectUrl.select();
+          document.execCommand("copy");
+          ui.showToast("📋 Link copiado!", 2000);
+        }
+      });
+    });
+  }
+
 });
