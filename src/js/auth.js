@@ -9,22 +9,6 @@ const AUTH_SESSION_KEY = 'SUPER_BT_SESSION_V1';
 class AuthManager {
   constructor() {
     this._initDefaultAdmin();
-    this._initSync();
-  }
-
-  _initSync() {
-    window.addEventListener('superbt:auth-sync', (e) => {
-      if (e.detail && e.detail.authData && Array.isArray(e.detail.authData.users)) {
-        if (e.detail.isInitial && e.detail.authData.users.length === 0) {
-          const local = this._loadData();
-          if (local.users && local.users.length > 0 && window.syncEngine) {
-            window.syncEngine.sendAuthUpdate(local);
-          }
-          return;
-        }
-        this._saveData(e.detail.authData, false);
-      }
-    });
   }
 
   /* ─── INICIALIZAÇÃO ─────────────────────────────────── */
@@ -57,14 +41,10 @@ class AuthManager {
     return { users: [] };
   }
 
-  _saveData(data, broadcast = true) {
+  _saveData(data) {
     try {
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(data));
     } catch (e) {}
-
-    if (broadcast && window.syncEngine) {
-      window.syncEngine.sendAuthUpdate(data);
-    }
   }
 
   _encode(str) {

@@ -9,7 +9,6 @@ class TournamentStateManager {
   constructor() {
     this._defaultState = this.getInitialState();
     this.data = this.loadState();
-    this._initSync();
   }
 
   getInitialState() {
@@ -69,45 +68,10 @@ class TournamentStateManager {
     };
   }
 
-  _initSync() {
-    window.addEventListener('superbt:remote-sync', (e) => {
-      if (e.detail && e.detail.state) {
-        this.applyRemoteState(e.detail.state, e.detail.isInitial);
-      }
-    });
-  }
-
-  applyRemoteState(remoteState, isInitial = false) {
-    if (!remoteState || !Array.isArray(remoteState.tournaments)) return;
-
-    // Se o servidor estiver vazio e o cliente tiver dados no localStorage, envia para o servidor
-    if (isInitial && remoteState.tournaments.length === 0) {
-      if (this.data && this.data.tournaments && this.data.tournaments.length > 0) {
-        if (window.syncEngine) {
-          window.syncEngine.sendStateUpdate(this.data);
-        }
-        return;
-      }
-    }
-
-    this.data = remoteState;
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.data));
-    } catch (e) {}
-
-    window.dispatchEvent(new CustomEvent('superbt:state-changed', {
-      detail: { remote: true, isInitial }
-    }));
-  }
-
-  saveState(broadcast = true) {
+  saveState() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(this.data));
     } catch(e) {}
-
-    if (broadcast && window.syncEngine) {
-      window.syncEngine.sendStateUpdate(this.data);
-    }
   }
 
   // Acessa o torneio ativo atual
