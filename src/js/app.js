@@ -162,7 +162,23 @@ document.addEventListener("DOMContentLoaded", () => {
         hideLoginScreen();
         updateUserBadge(result.user);
         applyPermissions(result.user.role);
-        initApp();
+
+        // Ao logar em qualquer aparelho, sincroniza instantaneamente com os dados mais recentes
+        if (window.location.protocol.startsWith("http")) {
+          fetch("/api/state")
+            .then(r => r.json())
+            .then(res => {
+              if (res && res.success && res.state) {
+                sm.applyRemoteState(res.state, false);
+              }
+              initApp();
+            })
+            .catch(() => {
+              initApp();
+            });
+        } else {
+          initApp();
+        }
       }, 600);
     });
   }
@@ -270,7 +286,22 @@ document.addEventListener("DOMContentLoaded", () => {
     hideLoginScreen();
     updateUserBadge(currentUser);
     applyPermissions(currentUser.role);
-    initApp();
+
+    if (window.location.protocol.startsWith("http")) {
+      fetch("/api/state")
+        .then(r => r.json())
+        .then(res => {
+          if (res && res.success && res.state) {
+            sm.applyRemoteState(res.state, false);
+          }
+          initApp();
+        })
+        .catch(() => {
+          initApp();
+        });
+    } else {
+      initApp();
+    }
   } else {
     showLoginScreen();
   }
@@ -843,69 +874,5 @@ document.addEventListener("DOMContentLoaded", () => {
 
     ui.showToast("⚡ Placar atualizado simultaneamente por outro aparelho!", 2200);
   });
-
-  /* ── Modal Conectar Aparelhos (QR Code & Link) ────── */
-  const modalConnect = document.getElementById("modal-connect-devices");
-  const btnCloseConnect = document.getElementById("btn-close-connect-modal");
-  const btnDoneConnect = document.getElementById("btn-done-connect");
-  const btnCopyConnect = document.getElementById("btn-copy-connect-url");
-  const inputConnectUrl = document.getElementById("input-connect-url");
-  const qrContainer = document.getElementById("connect-qr-container");
-
-  function openConnectModal() {
-    const shareUrl = window.syncEngine ? window.syncEngine.getShareableUrl() : window.location.href;
-    if (inputConnectUrl) inputConnectUrl.value = shareUrl;
-
-    if (qrContainer && window.QRCode && window.QRCode.generateSVG) {
-      qrContainer.innerHTML = window.QRCode.generateSVG(shareUrl, {
-        size: 154,
-        darkColor: "#0f172a",
-        lightColor: "#ffffff"
-      });
-    }
-
-    updateSyncPillUI({
-      status: window.syncEngine ? window.syncEngine.status : "connected",
-      clients: window.syncEngine ? window.syncEngine.connectedClients : 1
-    });
-
-    if (modalConnect) modalConnect.style.display = "flex";
-  }
-
-  function closeConnectModal() {
-    if (modalConnect) modalConnect.style.display = "none";
-  }
-
-  const btnConnectApp = document.getElementById("btn-connect-devices");
-  if (btnConnectApp) btnConnectApp.addEventListener("click", openConnectModal);
-
-  const btnSelConnect = document.getElementById("btn-sel-connect-devices");
-  if (btnSelConnect) btnSelConnect.addEventListener("click", openConnectModal);
-
-  if (btnCloseConnect) btnCloseConnect.addEventListener("click", closeConnectModal);
-  if (btnDoneConnect) btnDoneConnect.addEventListener("click", closeConnectModal);
-  if (modalConnect) modalConnect.addEventListener("click", (e) => { if (e.target === modalConnect) closeConnectModal(); });
-
-  if (btnCopyConnect) {
-    btnCopyConnect.addEventListener("click", () => {
-      const url = inputConnectUrl ? inputConnectUrl.value : "";
-      if (!url) return;
-      navigator.clipboard.writeText(url).then(() => {
-        btnCopyConnect.textContent = "✓ Copiado!";
-        btnCopyConnect.classList.add("copied");
-        ui.showToast("📋 Link copiado! Abra no celular ou envie pelo WhatsApp.", 3000);
-        setTimeout(() => {
-          btnCopyConnect.textContent = "📋 Copiar Link";
-          btnCopyConnect.classList.remove("copied");
-        }, 2200);
-      }).catch(() => {
-        if (inputConnectUrl) {
-          inputConnectUrl.select();
-          document.execCommand("copy");
-          ui.showToast("📋 Link copiado!", 2000);
-        }
-      });
-    });
-  }
 
 });
