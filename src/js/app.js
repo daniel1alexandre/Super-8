@@ -295,20 +295,10 @@ document.addEventListener("DOMContentLoaded", () => {
      VERIFICAR SESSÃO EXISTENTE
   ══════════════════════════════════════════════════════ */
 
-  if (window.location.hash === "#logout" || window.location.search.includes("logout") || window.location.search.includes("screen=login")) {
-    auth.logout();
-    history.replaceState(null, "", window.location.pathname);
-  }
-
-  const currentUser = auth.getCurrentUser();
-  if (currentUser) {
-    hideLoginScreen();
-    updateUserBadge(currentUser);
-    applyPermissions(currentUser.role);
-    initApp();
-  } else {
-    showLoginScreen();
-  }
+  // Sempre exibir a tela de login ao abrir o endereço do projeto.
+  // A sessão anterior é encerrada ao carregar a página (os dados dos torneios são preservados).
+  auth.logout();
+  showLoginScreen();
 
   // Monitorar se a conta do usuário atual for desativada pelo administrador
   window.addEventListener("storage", (e) => {
