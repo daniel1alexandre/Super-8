@@ -162,7 +162,17 @@ document.addEventListener("DOMContentLoaded", () => {
         hideLoginScreen();
         updateUserBadge(result.user);
         applyPermissions(result.user.role);
-        initApp();
+        if (appInitialized) {
+          const active = sm.getActiveTournament();
+          if (!active) {
+            ui.showScreen("selection");
+          }
+          ui.renderActiveTournamentsList();
+          ui.renderTournamentSwitcher();
+          ui.updateAppHeader();
+        } else {
+          initApp();
+        }
       }, 600);
     });
   }
@@ -299,6 +309,17 @@ document.addEventListener("DOMContentLoaded", () => {
   } else {
     showLoginScreen();
   }
+
+  // Monitorar se a conta do usuário atual for desativada pelo administrador
+  window.addEventListener("storage", (e) => {
+    if (e.key === "SUPER_BT_AUTH_V1" || e.key === "SUPER_BT_SESSION_V1") {
+      const current = auth.getCurrentUser();
+      if (!current) {
+        showLoginScreen();
+        ui.showToast("🔒 Sessão encerrada: usuário inativo ou deslogado.", 4000);
+      }
+    }
+  });
 
 
 
@@ -676,7 +697,7 @@ document.addEventListener("DOMContentLoaded", () => {
           const result = auth.toggleUserActive(e.currentTarget.dataset.uid);
           if (result.success) {
             renderUsersList();
-            ui.showToast(result.active ? "✅ Usuário ativado." : "⏸️ Usuário desativado.");
+            ui.showToast(result.active ? "✅ Usuário ativado." : "⏸️ Usuário desativado (sem acesso ao app).");
           }
         });
       }

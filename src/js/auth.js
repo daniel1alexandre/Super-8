@@ -60,10 +60,12 @@ class AuthManager {
   login(username, password) {
     const data = this._loadData();
     const user = data.users.find(
-      u => u.username.toLowerCase() === username.toLowerCase() &&
-           u.active !== false
+      u => u.username.toLowerCase() === username.toLowerCase()
     );
-    if (!user) return { success: false, error: 'Usuário não encontrado ou inativo.' };
+    if (!user) return { success: false, error: 'Usuário não encontrado.' };
+    if (user.active === false) {
+      return { success: false, error: 'Acesso negado: este usuário foi desativado pelo administrador.' };
+    }
     if (this._decode(user.password) !== password) {
       return { success: false, error: 'Senha incorreta.' };
     }
@@ -85,7 +87,23 @@ class AuthManager {
   getCurrentUser() {
     try {
       const raw = localStorage.getItem(AUTH_SESSION_KEY);
-      if (raw) return JSON.parse(raw);
+      if (raw) {
+        const session = JSON.parse(raw);
+        if (session && session.userId) {
+          const data = this._loadData();
+          const user = data.users.find(u => u.id === session.userId);
+          // Se o usuário foi desativado ou excluído, revogar o acesso imediatamente
+          if (!user || user.active === false) {
+            this.logout();
+            return null;
+          }
+          // Manter dados atualizados da conta
+          session.displayName = user.displayName;
+          session.username = user.username;
+          session.role = user.role;
+          return session;
+        }
+      }
     } catch (e) {}
     return null;
   }
@@ -177,6 +195,18 @@ class AuthManager {
     if (!user) return { success: false, error: 'Usuário não encontrado.' };
     user.active = !user.active;
     this._saveData(data);
+
+    // Se o usuário desativado for o atualmente com sessão aberta, revogar imediatamente
+    try {
+      const raw = localStorage.getItem(AUTH_SESSION_KEY);
+      if (raw) {
+        const session = JSON.parse(raw);
+        if (session && session.userId === userId && !user.active) {
+          this.logout();
+        }
+      }
+    } catch (e) {}
+
     return { success: true, active: user.active };
   }
 }

@@ -99,6 +99,7 @@ class TournamentUI {
               '</span>' +
               '<span>&middot;</span>' +
               '<span>' + (tourn.players ? tourn.players.length : 0) + ' ' + (cat.playerLabel || 'atletas') + '</span>' +
+              (tourn.createdByUsername ? '<span>&middot;</span><span class="active-tourn-creator" title="Criador deste torneio">👤 ' + tourn.createdByUsername + '</span>' : '') +
             '</div>' +
           '</div>' +
         '</div>' +
@@ -145,7 +146,9 @@ class TournamentUI {
       const opt = document.createElement('option');
       opt.value = tourn.id;
       const statusIcon = tourn.started ? '⚔️ ' : '👥 ';
-      opt.textContent = statusIcon + (tourn.title || 'Torneio');
+      const auth = window.authManager;
+      const creatorSuffix = (auth && auth.isAdmin() && tourn.createdByUsername) ? ' [' + tourn.createdByUsername + ']' : '';
+      opt.textContent = statusIcon + (tourn.title || 'Torneio') + creatorSuffix;
       if (tourn.id === activeId) opt.selected = true;
       select.appendChild(opt);
     });

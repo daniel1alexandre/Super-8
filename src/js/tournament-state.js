@@ -31,6 +31,13 @@ class TournamentStateManager {
       if (d) {
         const parsed = JSON.parse(d);
         if (parsed && Array.isArray(parsed.tournaments)) {
+          // Garantir que torneios existentes tenham criador associado ao admin padrão
+          parsed.tournaments.forEach(t => {
+            if (!t.createdBy) {
+              t.createdBy = 'admin-001';
+              t.createdByUsername = 'Daniel Baumann';
+            }
+          });
           return parsed;
         }
       }
@@ -78,7 +85,19 @@ class TournamentStateManager {
   getActiveTournament() {
     if (!this.data || !this.data.activeTournamentId) return null;
     const tourn = this.data.tournaments.find(t => t.id === this.data.activeTournamentId) || null;
-    if (tourn) this._ensureByeMatches(tourn);
+    if (!tourn) return null;
+
+    // Regra de Permissão: Administrador acessa todos os torneios.
+    // Os demais usuários só têm acesso aos torneios criados pelo seu próprio usuário.
+    const auth = window.authManager;
+    if (auth && auth.isLoggedIn() && !auth.isAdmin()) {
+      const user = auth.getCurrentUser();
+      if (!user) return null;
+      const isOwner = (tourn.createdBy === user.userId || tourn.createdByUsername === user.username);
+      if (!isOwner) return null;
+    }
+
+    this._ensureByeMatches(tourn);
     return tourn;
   }
 
@@ -109,7 +128,16 @@ class TournamentStateManager {
   }
 
   getTournaments() {
-    return (this.data && this.data.tournaments) ? this.data.tournaments : [];
+    const list = (this.data && this.data.tournaments) ? this.data.tournaments : [];
+    const auth = window.authManager;
+    // O administrador tem acesso a todos os torneios criados por qualquer usuário.
+    // Demais usuários só têm acesso aos torneios criados pelo seu próprio usuário.
+    if (auth && auth.isLoggedIn() && !auth.isAdmin()) {
+      const user = auth.getCurrentUser();
+      if (!user) return [];
+      return list.filter(t => t.createdBy === user.userId || t.createdByUsername === user.username);
+    }
+    return list;
   }
 
   createTournament(category, format, customTitle, gender = 'masculino') {
@@ -145,11 +173,16 @@ class TournamentStateManager {
       }));
     }
 
+    const auth = window.authManager;
+    const currentUser = auth ? auth.getCurrentUser() : null;
+
     const newTournament = {
       id,
       title,
       gender: finalGender,
       createdAt: Date.now(),
+      createdBy: currentUser ? currentUser.userId : 'admin-001',
+      createdByUsername: currentUser ? (currentUser.displayName || currentUser.username) : 'Daniel Baumann',
       category,
       format,
       phase: 'setup',
@@ -170,7 +203,8 @@ class TournamentStateManager {
   }
 
   switchTournament(id) {
-    const t = this.data.tournaments.find(tourn => tourn.id === id);
+    const accessible = this.getTournaments();
+    const t = accessible.find(tourn => tourn.id === id);
     if (t) {
       this.data.activeTournamentId = id;
       this.saveState();
@@ -181,11 +215,20 @@ class TournamentStateManager {
 
   deleteTournament(id) {
     if (!this.data || !this.data.tournaments) return;
+    const auth = window.authManager;
+    if (auth && auth.isLoggedIn() && !auth.isAdmin()) {
+      const user = auth.getCurrentUser();
+      const tourn = this.data.tournaments.find(t => t.id === id);
+      if (tourn && tourn.createdBy && user && tourn.createdBy !== user.userId) {
+        return; // Usuário não tem permissão para excluir torneio de outro usuário
+      }
+    }
     const index = this.data.tournaments.findIndex(t => t.id === id);
     if (index === -1) return;
     this.data.tournaments.splice(index, 1);
     if (this.data.activeTournamentId === id) {
-      this.data.activeTournamentId = this.data.tournaments.length > 0 ? this.data.tournaments[this.data.tournaments.length - 1].id : null;
+      const accessible = this.getTournaments();
+      this.data.activeTournamentId = accessible.length > 0 ? accessible[accessible.length - 1].id : null;
     }
     this.saveState();
   }
