@@ -77,7 +77,27 @@ class TournamentStateManager {
   // Acessa o torneio ativo atual
   getActiveTournament() {
     if (!this.data || !this.data.activeTournamentId) return null;
-    return this.data.tournaments.find(t => t.id === this.data.activeTournamentId) || null;
+    const tourn = this.data.tournaments.find(t => t.id === this.data.activeTournamentId) || null;
+    if (tourn) this._ensureByeMatches(tourn);
+    return tourn;
+  }
+
+  _ensureByeMatches(tournament) {
+    if (!tournament || !tournament.rounds) return;
+    tournament.rounds.forEach(ro => {
+      if (ro.byePlayers && ro.byePlayers.length > 0 && !ro.matches.some(m => m.isByeMatch)) {
+        ro.matches.push({
+          id: 'R' + ro.round + '-BYE',
+          court: 'Folga / BYE',
+          teamA: ro.byePlayers,
+          teamB: [{ id: 'bye', name: '— Folga —', isBye: true }],
+          scoreA: 0, scoreB: 0,
+          finished: true,
+          isEditing: false,
+          isByeMatch: true
+        });
+      }
+    });
   }
 
   // Getter compatível com toda a UI existente
@@ -210,7 +230,7 @@ class TournamentStateManager {
       (ro.matches || []).forEach(m => {
         m.scoreA = 0;
         m.scoreB = 0;
-        m.finished = false;
+        m.finished = !!m.isByeMatch;
         m.isEditing = false;
       });
     });

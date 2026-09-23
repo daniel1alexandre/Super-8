@@ -625,35 +625,57 @@ class TournamentUI {
 
       let matchesHtml = '';
       rd.matches.forEach(m => {
+        const isBye = !!m.isByeMatch;
         const teamALabel = this._teamLabel(m.teamA, category, fmt);
-        const teamBLabel = this._teamLabel(m.teamB, category, fmt);
-        const isFin = !!m.finished;
-        const winnerA = isFin && m.scoreA > m.scoreB;
-        const winnerB = isFin && m.scoreB > m.scoreA;
+        const teamBLabel = isBye ? '<span class="overview-bye-text">— Folga (BYE) —</span>' : this._teamLabel(m.teamB, category, fmt);
+        const isFin = isBye || !!m.finished;
+        const winnerA = !isBye && isFin && m.scoreA > m.scoreB;
+        const winnerB = !isBye && isFin && m.scoreB > m.scoreA;
 
-        matchesHtml +=
-          '<div class="overview-match-item ' + (isFin ? 'finished' : '') + '">' +
-            '<div class="overview-match-court-line">' +
-              '<span class="overview-court-pill">' + m.court + '</span>' +
-              (fmt.isMixed ? '<span class="mixed-badge">🔀 Mistas</span>' : '') +
-              '<span class="overview-status-text ' + (isFin ? 'concluida' : 'pendente') + '">' +
-                (isFin ? '✓ Finalizada' : 'A disputar') +
-              '</span>' +
-            '</div>' +
-            '<div class="overview-teams-row">' +
-              '<div class="overview-team-side team-a ' + (winnerA ? 'winner' : '') + '">' +
-                '<span class="overview-team-names">' + teamALabel + '</span>' +
+        if (isBye) {
+          matchesHtml +=
+            '<div class="overview-match-item overview-match-item--bye">' +
+              '<div class="overview-match-court-line">' +
+                '<span class="overview-court-pill overview-court-pill--bye">💤 Folga / BYE</span>' +
+                '<span class="overview-status-text overview-status--bye">✓ Passou de Bye</span>' +
               '</div>' +
-              '<div class="overview-vs-block">' +
-                '<span class="overview-score-display ' + (isFin ? 'finished' : 'pending') + '">' +
-                  (isFin ? (m.scoreA + ' &times; ' + m.scoreB) : '— &times; —') +
+              '<div class="overview-teams-row">' +
+                '<div class="overview-team-side team-a overview-team--bye-active">' +
+                  '<span class="overview-team-names">' + teamALabel + '</span>' +
+                '</div>' +
+                '<div class="overview-vs-block">' +
+                  '<span class="overview-score-display overview-score--bye">BYE</span>' +
+                '</div>' +
+                '<div class="overview-team-side team-b overview-team--bye-ghost">' +
+                  '<span class="overview-team-names text-muted">— Folga —</span>' +
+                '</div>' +
+              '</div>' +
+            '</div>';
+        } else {
+          matchesHtml +=
+            '<div class="overview-match-item ' + (isFin ? 'finished' : '') + '">' +
+              '<div class="overview-match-court-line">' +
+                '<span class="overview-court-pill">' + m.court + '</span>' +
+                (fmt.isMixed ? '<span class="mixed-badge">🔀 Mistas</span>' : '') +
+                '<span class="overview-status-text ' + (isFin ? 'concluida' : 'pendente') + '">' +
+                  (isFin ? '✓ Finalizada' : 'A disputar') +
                 '</span>' +
               '</div>' +
-              '<div class="overview-team-side team-b ' + (winnerB ? 'winner' : '') + '">' +
-                '<span class="overview-team-names">' + teamBLabel + '</span>' +
+              '<div class="overview-teams-row">' +
+                '<div class="overview-team-side team-a ' + (winnerA ? 'winner' : '') + '">' +
+                  '<span class="overview-team-names">' + teamALabel + '</span>' +
+                '</div>' +
+                '<div class="overview-vs-block">' +
+                  '<span class="overview-score-display ' + (isFin ? 'finished' : 'pending') + '">' +
+                    (isFin ? (m.scoreA + ' &times; ' + m.scoreB) : '— &times; —') +
+                  '</span>' +
+                '</div>' +
+                '<div class="overview-team-side team-b ' + (winnerB ? 'winner' : '') + '">' +
+                  '<span class="overview-team-names">' + teamBLabel + '</span>' +
+                '</div>' +
               '</div>' +
-            '</div>' +
-          '</div>';
+            '</div>';
+        }
       });
 
       let byeHtml = '';
@@ -736,7 +758,7 @@ class TournamentUI {
       return manName + (manName && womanName ? ' &amp; ' : '') + womanName;
     }
     if (team.length === 1) return team[0].name;
-    return team[0].name + (team[1] ? ' &amp; ' + team[1].name : '');
+    return team.map(p => p.name).join(' &amp; ');
   }
 
   renderMatches() {
@@ -779,115 +801,158 @@ class TournamentUI {
     container.appendChild(courtsGrid);
 
     roundData.matches.forEach(match => {
+      const isBye = !!match.isByeMatch;
       const isFinished = !!match.finished;
-      const isEditing  = !!match.isEditing;
-      const isLocked   = isFinished && !isEditing;
-      const isTeamAWinner = isFinished && match.scoreA > match.scoreB;
-      const isTeamBWinner = isFinished && match.scoreB > match.scoreA;
+      const isEditing  = !isBye && !!match.isEditing;
+      const isLocked   = isBye || (isFinished && !isEditing);
+      const isTeamAWinner = !isBye && isFinished && match.scoreA > match.scoreB;
+      const isTeamBWinner = !isBye && isFinished && match.scoreB > match.scoreA;
 
       const teamALabel = this._teamLabel(match.teamA, category, fmt);
-      const teamBLabel = this._teamLabel(match.teamB, category, fmt);
+      const teamBLabel = isBye ? '<span class="bye-ghost-label">💤 Folga (BYE)</span>' : this._teamLabel(match.teamB, category, fmt);
 
       // ── Tile da Quadra (court map tile) ────────────────
       const tile = document.createElement('div');
-      const tileState = isEditing ? 'editing' : isFinished ? 'done' : 'pending';
-      tile.className = 'court-tile court-tile--' + tileState + (fmt.isMixed ? ' mixed-match' : '');
+      const tileState = isBye ? 'bye' : isEditing ? 'editing' : isFinished ? 'done' : 'pending';
+      tile.className = 'court-tile court-tile--' + tileState + (isBye ? ' court-tile--bye-match' : '') + (fmt.isMixed ? ' mixed-match' : '');
 
-      tile.innerHTML =
-        // Cabeçalho da quadra
-        '<div class="court-tile__header">' +
-          '<span class="court-tile__badge">' + match.court + '</span>' +
-          (fmt.isMixed ? '<span class="mixed-badge">🔀 Mistas</span>' : '') +
-          '<span class="court-tile__status">' +
-            (isFinished ? (isEditing ? '✏️ Editando...' : '✓ Finalizada') : '⏳ Aguardando') +
-          '</span>' +
-        '</div>' +
-        // Superfície da quadra
-        '<div class="court-tile__surface">' +
-          // Linha central e rede
-          '<div class="court-net"><div class="court-net-line"></div></div>' +
-          // Time A
-          '<div class="court-side court-side--a ' + (isTeamAWinner ? 'winner-side' : '') + '">' +
-            '<div class="court-team-names">' + teamALabel + '</div>' +
-            '<div class="court-score-wrap">' +
-              '<input type="number" min="0" max="99" ' +
-                'class="score-input court-score-input ' + (isLocked ? 'score-locked' : '') + '" ' +
-                'id="inp-a-' + match.id + '" data-match="' + match.id + '" data-team="A" ' +
-                'value="' + match.scoreA + '" ' + (isLocked ? 'readonly' : '') + ' />' +
+      if (isBye) {
+        tile.innerHTML =
+          // Cabeçalho especial da folga
+          '<div class="court-tile__header court-tile__header--bye">' +
+            '<span class="court-tile__badge court-tile__badge--bye">💤 Folga / BYE</span>' +
+            '<span class="court-tile__status court-tile__status--bye">💤 Passou de Bye</span>' +
+          '</div>' +
+          // Superfície da quadra com destaque visual de folga
+          '<div class="court-tile__surface court-tile__surface--bye">' +
+            '<div class="court-bye-banner">' +
+              '<div class="court-bye-icon">☕</div>' +
+              '<div class="court-bye-text-group">' +
+                '<strong class="court-bye-heading">FOLGA NESTA RODADA</strong>' +
+                '<span class="court-bye-subtext">Classificado automaticamente sem necessidade de jogo</span>' +
+              '</div>' +
+            '</div>' +
+            // Time A (Em folga)
+            '<div class="court-side court-side--a court-side--bye-active">' +
+              '<div class="court-bye-side-label">Atleta / Dupla em Folga:</div>' +
+              '<div class="court-team-names court-team-names--bye">' + teamALabel + '</div>' +
+              '<div class="court-score-wrap">' +
+                '<input type="text" class="score-input court-score-input score-locked score-disabled" value="BYE" readonly disabled title="Folga na Rodada" />' +
+              '</div>' +
+            '</div>' +
+            // Linha central com rede neutra
+            '<div class="court-net court-net--bye"><div class="court-net-line court-net-line--bye"></div></div>' +
+            // Time B (Sem adversário)
+            '<div class="court-side court-side--b court-side--bye-ghost">' +
+              '<div class="court-team-names text-muted"><span class="bye-opponent-text">— Folga Automática (Sem Adversário) —</span></div>' +
+              '<div class="court-score-wrap">' +
+                '<input type="text" class="score-input court-score-input score-locked score-disabled" value="—" readonly disabled title="Sem Adversário" />' +
+              '</div>' +
             '</div>' +
           '</div>' +
-          // Time B
-          '<div class="court-side court-side--b ' + (isTeamBWinner ? 'winner-side' : '') + '">' +
-            '<div class="court-team-names">' + teamBLabel + '</div>' +
-            '<div class="court-score-wrap">' +
-              '<input type="number" min="0" max="99" ' +
-                'class="score-input court-score-input ' + (isLocked ? 'score-locked' : '') + '" ' +
-                'id="inp-b-' + match.id + '" data-match="' + match.id + '" data-team="B" ' +
-                'value="' + match.scoreB + '" ' + (isLocked ? 'readonly' : '') + ' />' +
+          // Rodapé desabilitado
+          '<div class="court-tile__footer court-tile__footer--bye">' +
+            '<button type="button" class="btn btn-secondary btn-bye-disabled" disabled title="Confronto de folga concluído">' +
+              '💤 Passou de Bye (Folga Concluída)' +
+            '</button>' +
+          '</div>';
+      } else {
+        tile.innerHTML =
+          // Cabeçalho da quadra
+          '<div class="court-tile__header">' +
+            '<span class="court-tile__badge">' + match.court + '</span>' +
+            (fmt.isMixed ? '<span class="mixed-badge">🔀 Mistas</span>' : '') +
+            '<span class="court-tile__status">' +
+              (isFinished ? (isEditing ? '✏️ Editando...' : '✓ Finalizada') : '⏳ Aguardando') +
+            '</span>' +
+          '</div>' +
+          // Superfície da quadra
+          '<div class="court-tile__surface">' +
+            // Linha central e rede
+            '<div class="court-net"><div class="court-net-line"></div></div>' +
+            // Time A
+            '<div class="court-side court-side--a ' + (isTeamAWinner ? 'winner-side' : '') + '">' +
+              '<div class="court-team-names">' + teamALabel + '</div>' +
+              '<div class="court-score-wrap">' +
+                '<input type="number" min="0" max="99" ' +
+                  'class="score-input court-score-input ' + (isLocked ? 'score-locked' : '') + '" ' +
+                  'id="inp-a-' + match.id + '" data-match="' + match.id + '" data-team="A" ' +
+                  'value="' + match.scoreA + '" ' + (isLocked ? 'readonly' : '') + ' />' +
+              '</div>' +
+            '</div>' +
+            // Time B
+            '<div class="court-side court-side--b ' + (isTeamBWinner ? 'winner-side' : '') + '">' +
+              '<div class="court-team-names">' + teamBLabel + '</div>' +
+              '<div class="court-score-wrap">' +
+                '<input type="number" min="0" max="99" ' +
+                  'class="score-input court-score-input ' + (isLocked ? 'score-locked' : '') + '" ' +
+                  'id="inp-b-' + match.id + '" data-match="' + match.id + '" data-team="B" ' +
+                  'value="' + match.scoreB + '" ' + (isLocked ? 'readonly' : '') + ' />' +
+              '</div>' +
             '</div>' +
           '</div>' +
-        '</div>' +
-        // Rodapé
-        '<div class="court-tile__footer">' +
-          (isLocked
-            ? '<button class="btn btn-secondary btn-edit-match" data-match="' + match.id + '">✏️ Editar</button>'
-            : '<button class="btn btn-primary btn-save-match" data-match="' + match.id + '">💾 Salvar Resultado</button>') +
-        '</div>';
+          // Rodapé
+          '<div class="court-tile__footer">' +
+            (isLocked
+              ? '<button class="btn btn-secondary btn-edit-match" data-match="' + match.id + '">✏️ Editar</button>'
+              : '<button class="btn btn-primary btn-save-match" data-match="' + match.id + '">💾 Salvar Resultado</button>') +
+          '</div>';
 
-      // ── Evento: limpar campo ao focar ─────────────────
-      tile.querySelectorAll('.score-input:not(.score-locked)').forEach(inp => {
-        inp.addEventListener('focus', e => {
-          e.target.value = '';
+        // ── Eventos apenas para jogos normais ──
+        tile.querySelectorAll('.score-input:not(.score-locked)').forEach(inp => {
+          inp.addEventListener('focus', e => {
+            e.target.value = '';
+          });
+          inp.addEventListener('blur', e => {
+            if (e.target.value === '') e.target.value = '0';
+          });
         });
-        inp.addEventListener('blur', e => {
-          if (e.target.value === '') e.target.value = '0';
+
+        tile.querySelectorAll('.score-input').forEach(inp => {
+          inp.addEventListener('change', e => {
+            const mId = e.currentTarget.dataset.match;
+            const inpA = tile.querySelector('#inp-a-' + mId);
+            const inpB = tile.querySelector('#inp-b-' + mId);
+            inpA.value = Math.max(0, parseInt(inpA.value) || 0);
+            inpB.value = Math.max(0, parseInt(inpB.value) || 0);
+            this.sm.updateMatchScore(currentRound, mId, parseInt(inpA.value), parseInt(inpB.value));
+          });
         });
-      });
 
-      tile.querySelectorAll('.score-input').forEach(inp => {
-        inp.addEventListener('change', e => {
-          const mId = e.currentTarget.dataset.match;
-          const inpA = tile.querySelector('#inp-a-' + mId);
-          const inpB = tile.querySelector('#inp-b-' + mId);
-          inpA.value = Math.max(0, parseInt(inpA.value) || 0);
-          inpB.value = Math.max(0, parseInt(inpB.value) || 0);
-          this.sm.updateMatchScore(currentRound, mId, parseInt(inpA.value), parseInt(inpB.value));
-        });
-      });
+        const saveBtn = tile.querySelector('.btn-save-match');
+        if (saveBtn) {
+          saveBtn.addEventListener('click', () => {
+            const inpA = tile.querySelector('#inp-a-' + match.id);
+            const inpB = tile.querySelector('#inp-b-' + match.id);
+            this.sm.saveMatchResult(currentRound, match.id, parseInt(inpA.value) || 0, parseInt(inpB.value) || 0);
+            this.renderMatches(); this.renderLeaderboard(); this.renderRoundsNav(); this.updateHeaderProgress();
+            this._refreshMatchupsIfActive();
+            this._refreshTvModeIfActive();
 
-      const saveBtn = tile.querySelector('.btn-save-match');
-      if (saveBtn) {
-        saveBtn.addEventListener('click', () => {
-          const inpA = tile.querySelector('#inp-a-' + match.id);
-          const inpB = tile.querySelector('#inp-b-' + match.id);
-          this.sm.saveMatchResult(currentRound, match.id, parseInt(inpA.value) || 0, parseInt(inpB.value) || 0);
-          this.renderMatches(); this.renderLeaderboard(); this.renderRoundsNav(); this.updateHeaderProgress();
-          this._refreshMatchupsIfActive();
-          this._refreshTvModeIfActive();
+            // ── Verificar se foi o último resultado do torneio inteiro ──
+            const { completed, total } = this.sm.getCompletedMatchesCount();
+            if (total > 0 && completed === total) {
+              this.showToast('🏆 Último resultado registrado! Redirecionando para a Classificação...', 3200);
+              setTimeout(() => {
+                this.switchTab('leaderboard');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }, 600);
+              return;
+            }
 
-          // ── Verificar se foi o último resultado do torneio inteiro ──
-          const { completed, total } = this.sm.getCompletedMatchesCount();
-          if (total > 0 && completed === total) {
-            this.showToast('🏆 Último resultado registrado! Redirecionando para a Classificação...', 3200);
-            setTimeout(() => {
-              this.switchTab('leaderboard');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }, 600);
-            return;
-          }
+            // ── Verificar se todos os jogos da rodada terminaram ──
+            this._checkRoundCompletion(currentRound);
+          });
+        }
 
-          // ── Verificar se todos os jogos da rodada terminaram ──
-          this._checkRoundCompletion(currentRound);
-        });
-      }
-
-      const editBtn = tile.querySelector('.btn-edit-match');
-      if (editBtn) {
-        editBtn.addEventListener('click', () => {
-          this.sm.editMatchResult(currentRound, match.id);
-          this.renderMatches();
-          this._refreshTvModeIfActive();
-        });
+        const editBtn = tile.querySelector('.btn-edit-match');
+        if (editBtn) {
+          editBtn.addEventListener('click', () => {
+            this.sm.editMatchResult(currentRound, match.id);
+            this.renderMatches();
+            this._refreshTvModeIfActive();
+          });
+        }
       }
 
       courtsGrid.appendChild(tile);

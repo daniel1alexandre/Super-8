@@ -97,6 +97,16 @@ function _buildFromPrecomputed(players, rawSchedule) {
       finished: false, isEditing: false, isByeMatch: false
     }));
     const byePlayers = (rd.byes || []).map(idx => players[idx]).filter(Boolean);
+    if (byePlayers.length > 0) {
+      matches.push({
+        id: 'R' + (rIdx + 1) + '-BYE',
+        court: 'Folga / BYE',
+        teamA: byePlayers,
+        teamB: [{ id: 'bye', name: '— Folga —', isBye: true }],
+        scoreA: 0, scoreB: 0,
+        finished: true, isEditing: false, isByeMatch: true
+      });
+    }
     return { round: rIdx + 1, matches, byePlayers };
   });
 }
@@ -104,15 +114,25 @@ function _buildFromPrecomputed(players, rawSchedule) {
 function _buildWhist5(players) {
   const rounds = [];
   for (let r = 0; r < 5; r++) {
-    const matches = [{
-      id: 'R' + (r + 1) + '-M1',
-      court: 'Quadra 1',
-      teamA: [players[(r + 1) % 5], players[(r + 4) % 5]],
-      teamB: [players[(r + 2) % 5], players[(r + 3) % 5]],
-      scoreA: 0, scoreB: 0,
-      finished: false, isEditing: false, isByeMatch: false
-    }];
     const byePlayers = [players[r]];
+    const matches = [
+      {
+        id: 'R' + (r + 1) + '-M1',
+        court: 'Quadra 1',
+        teamA: [players[(r + 1) % 5], players[(r + 4) % 5]],
+        teamB: [players[(r + 2) % 5], players[(r + 3) % 5]],
+        scoreA: 0, scoreB: 0,
+        finished: false, isEditing: false, isByeMatch: false
+      },
+      {
+        id: 'R' + (r + 1) + '-BYE',
+        court: 'Folga / BYE',
+        teamA: byePlayers,
+        teamB: [{ id: 'bye', name: '— Folga —', isBye: true }],
+        scoreA: 0, scoreB: 0,
+        finished: true, isEditing: false, isByeMatch: true
+      }
+    ];
     rounds.push({ round: r + 1, matches, byePlayers });
   }
   return rounds;
@@ -240,6 +260,16 @@ function generateRotatingDoublesRoundRobin(players) {
     }
 
     const byePlayers = [...ghostByePlayers, ...pairByePlayers];
+    if (byePlayers.length > 0) {
+      matches.push({
+        id: 'R' + (r + 1) + '-BYE',
+        court: 'Folga / BYE',
+        teamA: byePlayers,
+        teamB: [{ id: 'bye', name: '— Folga —', isBye: true }],
+        scoreA: 0, scoreB: 0,
+        finished: true, isEditing: false, isByeMatch: true
+      });
+    }
     rounds.push({ round: r + 1, matches, byePlayers });
   }
 
@@ -272,6 +302,14 @@ function generateDuplasFixasRoundRobin(teams) {
       if (tA.isBye || tB.isBye) {
         const real = tA.isBye ? tB : tA;
         byePlayers.push(real);
+        matches.push({
+          id: 'R' + (r + 1) + '-BYE',
+          court: 'Folga / BYE',
+          teamA: [real],
+          teamB: [{ id: 'bye', name: '— Folga —', isBye: true }],
+          scoreA: 0, scoreB: 0,
+          finished: true, isEditing: false, isByeMatch: true
+        });
       } else {
         matches.push({
           id: 'R' + (r + 1) + '-M' + courtNum,
@@ -308,29 +346,49 @@ function generateDuplasFixasRoundRobin(teams) {
  * do torneio, cada mulher joga contra todas as outras mulheres, e as
  * duplas mistas rotacionam a cada rodada.
  */
+// Configuração balanceada para Super 8 Mistas (8 Homens + 8 Mulheres, 7 rodadas)
+// Garante:
+// - Cada homem enfrenta cada outro homem exatamente 1x (28 confrontos únicos)
+// - Cada mulher enfrenta cada outra mulher exatamente 1x (28 confrontos únicos)
+// - Cada atleta joga com 7 parceiros(as) diferentes (56 parcerias 100% únicas)
+// - Confrontos homem vs mulher são distribuídos uniformemente (máx. 2x, eliminando anomalias de 6x)
+const MIXED_SUPER8_CONFIG = {
+  womenRoundOrder: [0, 1, 2, 3, 6, 4, 5],
+  courtPermutations: [
+    [3, 0, 1, 2],
+    [0, 3, 2, 1],
+    [1, 2, 3, 0],
+    [1, 0, 2, 3],
+    [0, 2, 1, 3],
+    [1, 0, 3, 2],
+    [3, 2, 1, 0]
+  ],
+  roundFlips: [11, 12, 8, 5, 7, 7, 6]
+};
+
 function generateMixedIndividualMatches(men, women) {
   const menPositions = generateBergerPositions(men.length);
   const womenPositions = generateBergerPositions(women.length);
   const numRounds = menPositions.length;
   const rounds = [];
 
-  // Ordem balanceada de rodadas e inversões para garantir que cada homem enfrente
-  // cada outro homem 1x, cada mulher enfrente cada outra mulher 1x, e parceiros 100% únicos
-  const womenRoundOrder = [0, 2, 4, 6, 1, 3, 5];
-  const roundFlips = [0, 1, 1, 1, 1, 1, 1];
+  const isStandardSuper8 = (men.length === 8 && women.length === 8);
 
   for (let r = 0; r < numRounds; r++) {
     const mPairs = menPositions[r];
-    const wPairs = womenPositions[womenRoundOrder[r]];
-    const flipMask = roundFlips[r];
+    const wRoundIdx = isStandardSuper8 ? MIXED_SUPER8_CONFIG.womenRoundOrder[r] : r;
+    const wPairs = womenPositions[wRoundIdx];
+    const cPerm = isStandardSuper8 ? MIXED_SUPER8_CONFIG.courtPermutations[r] : null;
+    const flipMask = isStandardSuper8 ? MIXED_SUPER8_CONFIG.roundFlips[r] : 0;
     const matches = [];
 
     for (let k = 0; k < mPairs.length; k++) {
       const idxManA = mPairs[k][0];
       const idxManB = mPairs[k][1];
+      const wp = cPerm ? wPairs[cPerm[k]] : wPairs[k];
       const flip = (flipMask >> k) & 1;
-      const idxWomanA = flip ? wPairs[k][1] : wPairs[k][0];
-      const idxWomanB = flip ? wPairs[k][0] : wPairs[k][1];
+      const idxWomanA = flip ? wp[1] : wp[0];
+      const idxWomanB = flip ? wp[0] : wp[1];
 
       matches.push({
         id: 'R' + (r + 1) + '-M' + (k + 1),
