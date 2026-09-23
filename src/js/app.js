@@ -178,9 +178,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const role     = document.getElementById("user-badge-role");
     const adminBtn = document.getElementById("btn-admin-users");
 
-    const selAvatar = document.getElementById("sel-user-badge-avatar");
-    const selName   = document.getElementById("sel-user-badge-name");
-    const selRole   = document.getElementById("sel-user-badge-role");
+    const selAvatar   = document.getElementById("sel-user-badge-avatar");
+    const selName     = document.getElementById("sel-user-badge-name");
+    const selRole     = document.getElementById("sel-user-badge-role");
+    const selAdminBtn = document.getElementById("btn-sel-admin-users");
 
     const initials = (user.displayName || user.username || "?")
       .split(" ").slice(0, 2).map(w => w[0]).join("").toUpperCase();
@@ -191,9 +192,33 @@ document.addEventListener("DOMContentLoaded", () => {
     if (role)   { role.textContent = roleLabels[user.role] || user.role; role.className = "user-badge-role role-" + user.role; }
     if (adminBtn) adminBtn.style.display = user.role === "admin" ? "flex" : "none";
 
-    if (selAvatar) { selAvatar.textContent = initials; selAvatar.className = "user-badge-avatar role-" + user.role; }
-    if (selName)   selName.textContent = user.displayName || user.username;
-    if (selRole)   { selRole.textContent = roleLabels[user.role] || user.role; selRole.className = "user-badge-role role-" + user.role; }
+    if (selAvatar)   { selAvatar.textContent = initials; selAvatar.className = "user-badge-avatar role-" + user.role; }
+    if (selName)     selName.textContent = user.displayName || user.username;
+    if (selRole)     { selRole.textContent = roleLabels[user.role] || user.role; selRole.className = "user-badge-role role-" + user.role; }
+    if (selAdminBtn) selAdminBtn.style.display = user.role === "admin" ? "flex" : "none";
+
+    // Permitir clicar no nome do administrador para abrir a tela de cadastro de novos usuários
+    const userBadgeEl    = document.getElementById("user-badge");
+    const selUserBadgeEl = document.getElementById("sel-user-badge");
+    if (user.role === "admin") {
+      if (userBadgeEl) {
+        userBadgeEl.classList.add("user-badge--clickable");
+        userBadgeEl.setAttribute("title", "👑 Administrador: clique para cadastrar novos usuários");
+      }
+      if (selUserBadgeEl) {
+        selUserBadgeEl.classList.add("user-badge--clickable");
+        selUserBadgeEl.setAttribute("title", "👑 Administrador: clique para cadastrar novos usuários");
+      }
+    } else {
+      if (userBadgeEl) {
+        userBadgeEl.classList.remove("user-badge--clickable");
+        userBadgeEl.removeAttribute("title");
+      }
+      if (selUserBadgeEl) {
+        selUserBadgeEl.classList.remove("user-badge--clickable");
+        selUserBadgeEl.removeAttribute("title");
+      }
+    }
   }
 
   /* ══════════════════════════════════════════════════════
@@ -558,15 +583,24 @@ document.addEventListener("DOMContentLoaded", () => {
      PAINEL ADMIN: GERENCIAR USUÁRIOS
   ══════════════════════════════════════════════════════ */
 
-  const modalAdmin    = document.getElementById("modal-admin-users");
-  const btnAdminOpen  = document.getElementById("btn-admin-users");
-  const btnAdminClose = document.getElementById("btn-close-admin-modal");
-  const adminFeedback = document.getElementById("admin-form-feedback");
+  const modalAdmin      = document.getElementById("modal-admin-users");
+  const btnAdminOpen    = document.getElementById("btn-admin-users");
+  const btnSelAdminOpen = document.getElementById("btn-sel-admin-users");
+  const selUserBadgeEl  = document.getElementById("sel-user-badge");
+  const userBadgeEl     = document.getElementById("user-badge");
+  const btnAdminClose   = document.getElementById("btn-close-admin-modal");
+  const adminFeedback   = document.getElementById("admin-form-feedback");
 
   function openAdminModal() {
     if (!auth.isAdmin()) return;
     renderUsersList();
-    if (modalAdmin) modalAdmin.style.display = "flex";
+    if (modalAdmin) {
+      modalAdmin.style.display = "flex";
+      setTimeout(() => {
+        const inp = document.getElementById("new-user-username");
+        if (inp) inp.focus();
+      }, 100);
+    }
   }
 
   function closeAdminModal() {
@@ -574,7 +608,27 @@ document.addEventListener("DOMContentLoaded", () => {
     clearAdminForm();
   }
 
-  if (btnAdminOpen)  btnAdminOpen.addEventListener("click", openAdminModal);
+  if (btnAdminOpen)    btnAdminOpen.addEventListener("click", openAdminModal);
+  if (btnSelAdminOpen) btnSelAdminOpen.addEventListener("click", openAdminModal);
+
+  // Ao clicar no nome ou badge do administrador, abrir cadastro de usuários
+  if (selUserBadgeEl) {
+    selUserBadgeEl.addEventListener("click", (e) => {
+      if (auth.isAdmin()) {
+        e.preventDefault();
+        openAdminModal();
+      }
+    });
+  }
+  if (userBadgeEl) {
+    userBadgeEl.addEventListener("click", (e) => {
+      if (auth.isAdmin()) {
+        e.preventDefault();
+        openAdminModal();
+      }
+    });
+  }
+
   if (btnAdminClose) btnAdminClose.addEventListener("click", closeAdminModal);
   if (modalAdmin) modalAdmin.addEventListener("click", e => { if (e.target === modalAdmin) closeAdminModal(); });
 

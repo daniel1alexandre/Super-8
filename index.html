@@ -94,12 +94,16 @@
     <div class="sel-bg-glow sel-glow-3"></div>
 
     <div class="sel-container">
-      <!-- Barra Superior com Usuário e Sair do Sistema -->
       <div class="sel-top-nav">
-        <div class="user-badge" id="sel-user-badge">
-          <span class="user-badge-avatar" id="sel-user-badge-avatar">?</span>
-          <span id="sel-user-badge-name"></span>
-          <span class="user-badge-role" id="sel-user-badge-role"></span>
+        <div class="user-badge-wrap" id="sel-user-badge-wrap">
+          <div class="user-badge" id="sel-user-badge">
+            <span class="user-badge-avatar" id="sel-user-badge-avatar">?</span>
+            <span id="sel-user-badge-name"></span>
+            <span class="user-badge-role" id="sel-user-badge-role"></span>
+          </div>
+          <button type="button" class="btn-admin-users" id="btn-sel-admin-users" style="display:none" title="Cadastrar e Gerenciar Usuários">
+            👥 Usuários
+          </button>
         </div>
         <button type="button" class="btn-logout" id="btn-sel-logout" title="Sair do sistema">
           🚪 Sair do Sistema
@@ -616,7 +620,7 @@
   <div class="modal-overlay" id="modal-admin-users" style="display:none;">
     <div class="modal-content modal-admin-content">
       <div class="modal-header">
-        <h3 class="modal-title">👥 Gerenciar Usuários</h3>
+        <h3 class="modal-title">👥 Cadastro e Gerenciamento de Usuários</h3>
         <button class="btn-close" id="btn-close-admin-modal">&times;</button>
       </div>
       <div class="modal-body">

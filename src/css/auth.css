@@ -380,6 +380,30 @@
   font-weight: 600;
   color: var(--text-primary);
   cursor: default;
+  transition: all 0.2s ease;
+}
+
+.user-badge.user-badge--clickable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.user-badge.user-badge--clickable:hover {
+  background: rgba(255, 159, 28, 0.15);
+  border-color: rgba(255, 159, 28, 0.45);
+  box-shadow: 0 4px 15px rgba(255, 159, 28, 0.25);
+  transform: translateY(-1px);
+}
+
+.user-badge.user-badge--clickable:hover #sel-user-badge-name,
+.user-badge.user-badge--clickable:hover #user-badge-name {
+  color: var(--accent-orange);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.user-badge.user-badge--clickable:active {
+  transform: translateY(0);
 }
 
 .user-badge-avatar {
