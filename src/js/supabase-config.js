@@ -9,7 +9,7 @@
   // Configuração padrão inserida no código (fixa para todos os aparelhos)
   const DEFAULT_CONFIG = {
     url: 'https://ayenwgyymcqjzyadtqdv.supabase.co',
-    anonKey: ''
+    anonKey: 'sb_publishable_tlto_UO6-biWpa0_v2Drog_oyhrr0lD'
   };
 
   function getConfig() {
