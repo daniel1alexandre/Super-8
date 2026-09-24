@@ -87,14 +87,13 @@ class TournamentStateManager {
     const tourn = this.data.tournaments.find(t => t.id === this.data.activeTournamentId) || null;
     if (!tourn) return null;
 
-    // Regra de Permissão: Administrador acessa todos os torneios.
-    // Os demais usuários só têm acesso aos torneios criados pelo seu próprio usuário.
+    // Regra de Permissão:
+    // Usuários autenticados (Admin, Operador e Visualizador) podem acessar o torneio ativo.
+    // O controle de edição vs visualização é aplicado na camada de interface e permissões de perfil.
     const auth = window.authManager;
-    if (auth && auth.isLoggedIn() && !auth.isAdmin()) {
+    if (auth && auth.isLoggedIn()) {
       const user = auth.getCurrentUser();
       if (!user) return null;
-      const isOwner = (tourn.createdBy === user.userId || tourn.createdByUsername === user.username);
-      if (!isOwner) return null;
     }
 
     this._ensureByeMatches(tourn);
@@ -130,12 +129,12 @@ class TournamentStateManager {
   getTournaments() {
     const list = (this.data && this.data.tournaments) ? this.data.tournaments : [];
     const auth = window.authManager;
-    // O administrador tem acesso a todos os torneios criados por qualquer usuário.
-    // Demais usuários só têm acesso aos torneios criados pelo seu próprio usuário.
-    if (auth && auth.isLoggedIn() && !auth.isAdmin()) {
+    // O administrador e o visualizador têm acesso a visualizar todos os torneios.
+    // Os operadores têm acesso aos torneios para operar/pontuar.
+    if (auth && auth.isLoggedIn()) {
       const user = auth.getCurrentUser();
       if (!user) return [];
-      return list.filter(t => t.createdBy === user.userId || t.createdByUsername === user.username);
+      return list;
     }
     return list;
   }

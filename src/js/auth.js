@@ -8,24 +8,63 @@ const AUTH_SESSION_KEY = 'SUPER_BT_SESSION_V1';
 
 class AuthManager {
   constructor() {
-    this._initDefaultAdmin();
+    this._initDefaultUsers();
   }
 
   /* ─── INICIALIZAÇÃO ─────────────────────────────────── */
 
-  _initDefaultAdmin() {
+  _initDefaultUsers() {
     const data = this._loadData();
-    const adminExists = data.users.some(u => u.username === 'Baumann');
-    if (!adminExists) {
-      data.users.push({
+    let changed = false;
+
+    // Usuários padrão pré-configurados e sempre habilitados no sistema
+    const presetUsers = [
+      {
         id: 'admin-001',
         username: 'Baumann',
         displayName: 'Daniel Baumann',
         password: this._encode('Daniel0306'),
         role: 'admin',
-        createdAt: Date.now(),
+        createdAt: 1725800000000,
         active: true
-      });
+      },
+      {
+        id: 'op-001',
+        username: 'operador',
+        displayName: 'Operador Padrão',
+        password: this._encode('operador123'),
+        role: 'operator',
+        createdAt: 1725800000000,
+        active: true
+      },
+      {
+        id: 'view-001',
+        username: 'visualizador',
+        displayName: 'Visualizador (Somente Leitura)',
+        password: this._encode('viewer123'),
+        role: 'viewer',
+        createdAt: 1725800000000,
+        active: true
+      }
+    ];
+
+    presetUsers.forEach(preset => {
+      const existing = data.users.find(u => u.username.toLowerCase() === preset.username.toLowerCase());
+      if (!existing) {
+        data.users.push(preset);
+        changed = true;
+      }
+    });
+
+    // Garantir que todos os usuários cadastrados estejam sempre habilitados se active não estiver false
+    data.users.forEach(u => {
+      if (u.active === undefined || u.active === null) {
+        u.active = true;
+        changed = true;
+      }
+    });
+
+    if (changed) {
       this._saveData(data);
     }
   }
@@ -131,7 +170,7 @@ class AuthManager {
     return this._loadData().users;
   }
 
-  createUser({ username, displayName, password, role }) {
+  createUser({ username, displayName, password, role, active = true }) {
     if (!username || !password || !role) {
       return { success: false, error: 'Campos obrigatórios ausentes.' };
     }
@@ -146,7 +185,7 @@ class AuthManager {
       password: this._encode(password),
       role: role,
       createdAt: Date.now(),
-      active: true
+      active: active !== false
     };
     data.users.push(newUser);
     this._saveData(data);

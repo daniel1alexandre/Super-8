@@ -236,12 +236,14 @@ document.addEventListener("DOMContentLoaded", () => {
   ══════════════════════════════════════════════════════ */
 
   function applyPermissions(role) {
+    const restrictedForViewer = [
+      "#btn-start-tournament", "#btn-demo-players",
+      "#btn-cancel-setup", "#btn-cancel-tournament", "#btn-proceed-setup",
+      "#btn-create-another-tournament", "#btn-header-new-tournament"
+    ];
+
     if (role === "viewer") {
-      const hiddenSelectors = [
-        "#btn-start-tournament", "#btn-demo-players",
-        "#btn-cancel-setup", "#btn-cancel-tournament", "#btn-proceed-setup"
-      ];
-      hiddenSelectors.forEach(sel => {
+      restrictedForViewer.forEach(sel => {
         const el = document.querySelector(sel);
         if (el) el.style.display = "none";
       });
@@ -249,9 +251,15 @@ document.addEventListener("DOMContentLoaded", () => {
         if (e.target.classList.contains("btn-save-match") ||
             e.target.classList.contains("btn-edit-match")) {
           e.stopImmediatePropagation();
-          ui.showToast("🔒 Seu perfil não tem permissão para editar resultados.");
+          ui.showToast("🔒 Seu perfil (Visualizador) é somente leitura. Não é permitido alterar resultados.");
         }
       }, true);
+    } else {
+      // Perfil operador e admin: garantir que os botões de ação fiquem visíveis e habilitados
+      restrictedForViewer.forEach(sel => {
+        const el = document.querySelector(sel);
+        if (el) el.style.display = "";
+      });
     }
   }
 
@@ -669,11 +677,11 @@ document.addEventListener("DOMContentLoaded", () => {
          </div>` +
         `<div class="user-card-badges">
            <span class="permission-badge role-${user.role}">${roleLabels[user.role] || user.role}</span>
-           ${user.active === false ? '<span class="badge-inactive">Inativo</span>' : ""}
+           ${user.active === false ? '<span class="badge-inactive">⏸️ Desabilitado</span>' : '<span class="badge-active">🟢 Habilitado</span>'}
          </div>` +
         `<div class="user-card-actions">
            <button class="btn-user-action btn-change-pwd" data-uid="${user.id}" data-uname="${user.displayName || user.username}" title="Alterar senha">🔑</button>
-           ${!isProtected ? `<button class="btn-user-action btn-toggle-active" data-uid="${user.id}" title="${user.active === false ? "Ativar" : "Desativar"} usuário">${user.active === false ? "✅" : "⏸️"}</button>` : ""}
+           ${!isProtected ? `<button class="btn-user-action btn-toggle-active" data-uid="${user.id}" title="${user.active === false ? "Habilitar" : "Desabilitar"} usuário">${user.active === false ? "✅" : "⏸️"}</button>` : ""}
            ${!isProtected ? `<button class="btn-user-action btn-delete-user" data-uid="${user.id}" data-uname="${user.displayName || user.username}" title="Excluir usuário">🗑️</button>` : ""}
          </div>`;
 
@@ -723,6 +731,8 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     const roleEl = document.getElementById("new-user-role");
     if (roleEl) roleEl.value = "operator";
+    const activeEl = document.getElementById("new-user-active");
+    if (activeEl) activeEl.value = "true";
     if (adminFeedback) adminFeedback.className = "admin-form-feedback";
   }
 
@@ -733,14 +743,15 @@ document.addEventListener("DOMContentLoaded", () => {
       const displayName = (document.getElementById("new-user-displayname")?.value || "").trim();
       const password    = (document.getElementById("new-user-password")?.value || "");
       const role        = document.getElementById("new-user-role")?.value || "operator";
+      const active      = document.getElementById("new-user-active") ? (document.getElementById("new-user-active").value === "true") : true;
 
       if (!username)           { showAdminFeedback("⚠️ Informe o nome de usuário (login).", "error"); return; }
       if (password.length < 4) { showAdminFeedback("⚠️ A senha deve ter no mínimo 4 caracteres.", "error"); return; }
 
-      const result = auth.createUser({ username, displayName, password, role });
+      const result = auth.createUser({ username, displayName, password, role, active });
       if (!result.success) { showAdminFeedback("❌ " + result.error, "error"); return; }
 
-      showAdminFeedback("✅ Usuário \"" + (displayName || username) + "\" criado com sucesso!", "success");
+      showAdminFeedback("✅ Usuário \"" + (displayName || username) + "\" criado e habilitado com sucesso!", "success");
       clearAdminForm();
       renderUsersList();
     });
