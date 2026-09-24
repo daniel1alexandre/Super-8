@@ -150,8 +150,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (btnLogin) btnLogin.classList.add("loading");
 
-      setTimeout(() => {
-        const result = auth.login(username, password);
+      setTimeout(async () => {
+        const result = await auth.login(username, password);
         if (btnLogin) btnLogin.classList.remove("loading");
 
         if (!result.success) {
@@ -691,8 +691,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const btnToggle = card.querySelector(".btn-toggle-active");
       if (btnToggle) {
-        btnToggle.addEventListener("click", e => {
-          const result = auth.toggleUserActive(e.currentTarget.dataset.uid);
+        btnToggle.addEventListener("click", async (e) => {
+          const result = await auth.toggleUserActive(e.currentTarget.dataset.uid);
           if (result.success) {
             renderUsersList();
             ui.showToast(result.active ? "✅ Usuário ativado." : "⏸️ Usuário desativado (sem acesso ao app).");
@@ -702,10 +702,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const btnDel = card.querySelector(".btn-delete-user");
       if (btnDel) {
-        btnDel.addEventListener("click", e => {
+        btnDel.addEventListener("click", async (e) => {
           const uname = e.currentTarget.dataset.uname;
           if (confirm(`Excluir o usuário "${uname}"? Esta ação não pode ser desfeita.`)) {
-            const result = auth.deleteUser(e.currentTarget.dataset.uid);
+            const result = await auth.deleteUser(e.currentTarget.dataset.uid);
             if (result.success) { renderUsersList(); ui.showToast("🗑️ Usuário excluído."); }
             else ui.showToast("❌ " + result.error);
           }
@@ -738,7 +738,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const btnCreateUser = document.getElementById("btn-create-user");
   if (btnCreateUser) {
-    btnCreateUser.addEventListener("click", () => {
+    btnCreateUser.addEventListener("click", async () => {
       const username    = (document.getElementById("new-user-username")?.value || "").trim();
       const displayName = (document.getElementById("new-user-displayname")?.value || "").trim();
       const password    = (document.getElementById("new-user-password")?.value || "");
@@ -748,10 +748,10 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!username)           { showAdminFeedback("⚠️ Informe o nome de usuário (login).", "error"); return; }
       if (password.length < 4) { showAdminFeedback("⚠️ A senha deve ter no mínimo 4 caracteres.", "error"); return; }
 
-      const result = auth.createUser({ username, displayName, password, role, active });
+      const result = await auth.createUser({ username, displayName, password, role, active });
       if (!result.success) { showAdminFeedback("❌ " + result.error, "error"); return; }
 
-      showAdminFeedback("✅ Usuário \"" + (displayName || username) + "\" criado e habilitado com sucesso!", "success");
+      showAdminFeedback("✅ Usuário \"" + (displayName || username) + "\" criado e sincronizado com sucesso!", "success");
       clearAdminForm();
       renderUsersList();
     });
@@ -787,7 +787,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (modalChangePwd) modalChangePwd.addEventListener("click", e => { if (e.target === modalChangePwd) closeChangePwdModal(); });
 
   if (btnConfirmChangePwd) {
-    btnConfirmChangePwd.addEventListener("click", () => {
+    btnConfirmChangePwd.addEventListener("click", async () => {
       const newPwd     = document.getElementById("change-pwd-new")?.value || "";
       const confirmPwd = document.getElementById("change-pwd-confirm")?.value || "";
 
@@ -800,12 +800,98 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      const result = auth.updateUser(changePwdUserId, { password: newPwd });
+      const result = await auth.updateUser(changePwdUserId, { password: newPwd });
       if (result.success) {
         closeChangePwdModal();
         ui.showToast("🔑 Senha alterada com sucesso!");
       } else {
         if (changePwdFeedback) { changePwdFeedback.textContent = "❌ " + result.error; changePwdFeedback.className = "admin-form-feedback error"; }
+      }
+    });
+  }
+
+  // ── Sincronização em Tempo Real (Supabase) ──────────
+  window.onUsersSynced = () => {
+    renderUsersList();
+  };
+
+  const modalSupabase        = document.getElementById("modal-supabase-config");
+  const btnOpenSupabase      = document.getElementById("btn-open-supabase-modal");
+  const btnCloseSupabase     = document.getElementById("btn-close-supabase-modal");
+  const btnCancelSupabase    = document.getElementById("btn-cancel-supabase");
+  const btnSaveSupabase      = document.getElementById("btn-save-supabase");
+  const supabaseInputUrl     = document.getElementById("supabase-input-url");
+  const supabaseInputKey     = document.getElementById("supabase-input-key");
+  const supabaseStatusTxt    = document.getElementById("supabase-status-txt");
+  const supabaseStatusBanner = document.getElementById("supabase-status-banner");
+  const supabaseFeedback     = document.getElementById("supabase-feedback");
+
+  function openSupabaseModal() {
+    const isReady = window.SupabaseConfig && window.SupabaseConfig.isReady();
+    if (supabaseStatusBanner && supabaseStatusTxt) {
+      if (isReady) {
+        supabaseStatusBanner.className = "supabase-status-banner connected";
+        supabaseStatusTxt.textContent = "🟢 Conectado à Nuvem Supabase (Sincronização Ativa)";
+      } else {
+        supabaseStatusBanner.className = "supabase-status-banner disconnected";
+        supabaseStatusTxt.textContent = "🟡 Aguardando Chaves de Conexão do Supabase";
+      }
+    }
+
+    if (window.SupabaseConfig) {
+      const cfg = window.SupabaseConfig.getConfig();
+      if (cfg) {
+        if (supabaseInputUrl) supabaseInputUrl.value = cfg.url || "";
+        if (supabaseInputKey) supabaseInputKey.value = cfg.anonKey || "";
+      }
+    }
+    if (supabaseFeedback) supabaseFeedback.className = "admin-form-feedback";
+    if (modalSupabase) modalSupabase.style.display = "flex";
+  }
+
+  function closeSupabaseModal() {
+    if (modalSupabase) modalSupabase.style.display = "none";
+  }
+
+  if (btnOpenSupabase)   btnOpenSupabase.addEventListener("click", openSupabaseModal);
+  if (btnCloseSupabase)  btnCloseSupabase.addEventListener("click", closeSupabaseModal);
+  if (btnCancelSupabase) btnCancelSupabase.addEventListener("click", closeSupabaseModal);
+  if (modalSupabase) modalSupabase.addEventListener("click", e => { if (e.target === modalSupabase) closeSupabaseModal(); });
+
+  if (btnSaveSupabase) {
+    btnSaveSupabase.addEventListener("click", async () => {
+      const url = (supabaseInputUrl?.value || "").trim();
+      const key = (supabaseInputKey?.value || "").trim();
+
+      if (!url || !key) {
+        if (supabaseFeedback) {
+          supabaseFeedback.textContent = "⚠️ Informe o Project URL e a Anon Public Key.";
+          supabaseFeedback.className = "admin-form-feedback error";
+        }
+        return;
+      }
+
+      if (window.SupabaseConfig) {
+        const client = window.SupabaseConfig.saveConfig(url, key);
+        if (client) {
+          if (supabaseFeedback) {
+            supabaseFeedback.textContent = "✅ Chaves salvas! Sincronizando com a nuvem...";
+            supabaseFeedback.className = "admin-form-feedback success";
+          }
+          if (supabaseStatusBanner && supabaseStatusTxt) {
+            supabaseStatusBanner.className = "supabase-status-banner connected";
+            supabaseStatusTxt.textContent = "🟢 Conectado à Nuvem Supabase (Sincronização Ativa)";
+          }
+          await auth.syncFromSupabase();
+          renderUsersList();
+          ui.showToast("☁️ Supabase conectado com sucesso! Usuários sincronizados.");
+          setTimeout(closeSupabaseModal, 1200);
+        } else {
+          if (supabaseFeedback) {
+            supabaseFeedback.textContent = "❌ Falha ao inicializar o cliente Supabase. Verifique a URL e a Chave.";
+            supabaseFeedback.className = "admin-form-feedback error";
+          }
+        }
       }
     });
   }

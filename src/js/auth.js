@@ -9,6 +9,7 @@ const AUTH_SESSION_KEY = 'SUPER_BT_SESSION_V1';
 class AuthManager {
   constructor() {
     this._initDefaultUsers();
+    this._initSupabaseSync();
   }
 
   /* ─── INICIALIZAÇÃO ─────────────────────────────────── */
@@ -17,7 +18,7 @@ class AuthManager {
     const data = this._loadData();
     let changed = false;
 
-    // Usuários padrão pré-configurados e sempre habilitados no sistema
+    // Apenas o cadastro do administrador principal permanece por padrão
     const presetUsers = [
       {
         id: 'admin-001',
@@ -27,26 +28,13 @@ class AuthManager {
         role: 'admin',
         createdAt: 1725800000000,
         active: true
-      },
-      {
-        id: 'op-001',
-        username: 'operador',
-        displayName: 'Operador Padrão',
-        password: this._encode('operador123'),
-        role: 'operator',
-        createdAt: 1725800000000,
-        active: true
-      },
-      {
-        id: 'view-001',
-        username: 'visualizador',
-        displayName: 'Visualizador (Somente Leitura)',
-        password: this._encode('viewer123'),
-        role: 'viewer',
-        createdAt: 1725800000000,
-        active: true
       }
     ];
+
+    // Remover usuários de teste automáticos caso ainda existam no cache local
+    const beforeCount = data.users.length;
+    data.users = data.users.filter(u => u.username.toLowerCase() !== 'operador' && u.username.toLowerCase() !== 'visualizador');
+    if (data.users.length !== beforeCount) changed = true;
 
     presetUsers.forEach(preset => {
       const existing = data.users.find(u => u.username.toLowerCase() === preset.username.toLowerCase());
@@ -67,6 +55,93 @@ class AuthManager {
     if (changed) {
       this._saveData(data);
     }
+  }
+
+  _initSupabaseSync() {
+    // Sincroniza logo ao iniciar
+    setTimeout(() => { this.syncFromSupabase(); }, 200);
+
+    // Configura escuta em tempo real
+    if (window.supabaseClient) {
+      this._setupRealtime();
+    } else {
+      window.addEventListener('load', () => {
+        if (window.supabaseClient) {
+          this._setupRealtime();
+          this.syncFromSupabase();
+        }
+      });
+    }
+  }
+
+  _setupRealtime() {
+    try {
+      if (!window.supabaseClient) return;
+      window.supabaseClient
+        .channel('superbt_users_live')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'superbt_users' }, (payload) => {
+          console.log('[Supabase Realtime] Mudança detectada na nuvem:', payload);
+          this.syncFromSupabase().then(() => {
+            if (typeof window.onUsersSynced === 'function') {
+              window.onUsersSynced();
+            }
+          });
+        })
+        .subscribe();
+    } catch (e) {
+      console.warn('[Supabase Realtime] Falha ao assinar canal:', e);
+    }
+  }
+
+  async syncFromSupabase() {
+    if (!window.supabaseClient) return { success: false, error: 'Supabase não inicializado' };
+    try {
+      const { data: remoteUsers, error } = await window.supabaseClient
+        .from('superbt_users')
+        .select('*');
+
+      if (error) {
+        console.warn('[Supabase Sync] Erro na consulta:', error.message || error);
+        return { success: false, error };
+      }
+
+      if (Array.isArray(remoteUsers)) {
+        const local = this._loadData();
+        const adminUser = local.users.find(u => u.id === 'admin-001') || {
+          id: 'admin-001',
+          username: 'Baumann',
+          displayName: 'Daniel Baumann',
+          password: this._encode('Daniel0306'),
+          role: 'admin',
+          createdAt: 1725800000000,
+          active: true
+        };
+
+        const mergedMap = new Map();
+        mergedMap.set('admin-001', adminUser);
+
+        remoteUsers.forEach(ru => {
+          if (ru.id === 'admin-001') return;
+          mergedMap.set(ru.id, {
+            id: ru.id,
+            username: ru.username,
+            displayName: ru.display_name || ru.username,
+            password: ru.password,
+            role: ru.role || 'operator',
+            active: ru.active !== false,
+            createdAt: ru.created_at || Date.now()
+          });
+        });
+
+        local.users = Array.from(mergedMap.values());
+        this._saveData(local);
+        console.log('[Supabase Sync] Usuários sincronizados da nuvem:', local.users.length);
+        return { success: true, count: local.users.length };
+      }
+    } catch (err) {
+      console.warn('[Supabase Sync] Exceção ao sincronizar:', err);
+    }
+    return { success: false };
   }
 
   _loadData() {
@@ -96,11 +171,40 @@ class AuthManager {
 
   /* ─── SESSÃO ────────────────────────────────────────── */
 
-  login(username, password) {
-    const data = this._loadData();
-    const user = data.users.find(
-      u => u.username.toLowerCase() === username.toLowerCase()
+  async login(username, password) {
+    const cleanUsername = (username || '').trim();
+    let data = this._loadData();
+    let user = data.users.find(
+      u => u.username.toLowerCase() === cleanUsername.toLowerCase()
     );
+
+    // Se o usuário não estiver no cache local ou se houver Supabase configurado, busca na nuvem imediatamente
+    if (!user && window.supabaseClient) {
+      try {
+        const { data: remoteUser, error } = await window.supabaseClient
+          .from('superbt_users')
+          .select('*')
+          .ilike('username', cleanUsername)
+          .maybeSingle();
+
+        if (remoteUser && !error) {
+          user = {
+            id: remoteUser.id,
+            username: remoteUser.username,
+            displayName: remoteUser.display_name || remoteUser.username,
+            password: remoteUser.password,
+            role: remoteUser.role || 'operator',
+            active: remoteUser.active !== false,
+            createdAt: remoteUser.created_at || Date.now()
+          };
+          data.users.push(user);
+          this._saveData(data);
+        }
+      } catch (e) {
+        console.warn('[Supabase] Erro ao buscar usuário no login:', e);
+      }
+    }
+
     if (!user) return { success: false, error: 'Usuário não encontrado.' };
     if (user.active === false) {
       return { success: false, error: 'Acesso negado: este usuário foi desativado pelo administrador.' };
@@ -170,7 +274,7 @@ class AuthManager {
     return this._loadData().users;
   }
 
-  createUser({ username, displayName, password, role, active = true }) {
+  async createUser({ username, displayName, password, role, active = true }) {
     if (!username || !password || !role) {
       return { success: false, error: 'Campos obrigatórios ausentes.' };
     }
@@ -189,10 +293,29 @@ class AuthManager {
     };
     data.users.push(newUser);
     this._saveData(data);
+
+    // Sincronizar instantaneamente no Supabase na nuvem
+    if (window.supabaseClient) {
+      try {
+        await window.supabaseClient.from('superbt_users').upsert({
+          id: newUser.id,
+          username: newUser.username,
+          display_name: newUser.displayName,
+          password: newUser.password,
+          role: newUser.role,
+          active: newUser.active,
+          created_at: newUser.createdAt
+        });
+        console.log('[Supabase Sync] Novo usuário salvo na nuvem:', newUser.username);
+      } catch (err) {
+        console.warn('[Supabase Sync] Falha ao enviar para Supabase:', err);
+      }
+    }
+
     return { success: true, user: newUser };
   }
 
-  updateUser(userId, changes) {
+  async updateUser(userId, changes) {
     const data = this._loadData();
     const idx = data.users.findIndex(u => u.id === userId);
     if (idx === -1) return { success: false, error: 'Usuário não encontrado.' };
@@ -208,10 +331,25 @@ class AuthManager {
     }
     data.users[idx] = { ...data.users[idx], ...changes };
     this._saveData(data);
+
+    if (window.supabaseClient && userId !== 'admin-001') {
+      try {
+        const u = data.users[idx];
+        await window.supabaseClient.from('superbt_users').update({
+          display_name: u.displayName,
+          password: u.password,
+          role: u.role,
+          active: u.active
+        }).eq('id', userId);
+      } catch (err) {
+        console.warn('[Supabase Sync] Falha ao atualizar na nuvem:', err);
+      }
+    }
+
     return { success: true };
   }
 
-  deleteUser(userId) {
+  async deleteUser(userId) {
     if (userId === 'admin-001') {
       return { success: false, error: 'O administrador principal não pode ser excluído.' };
     }
@@ -222,10 +360,19 @@ class AuthManager {
     const data = this._loadData();
     data.users = data.users.filter(u => u.id !== userId);
     this._saveData(data);
+
+    if (window.supabaseClient) {
+      try {
+        await window.supabaseClient.from('superbt_users').delete().eq('id', userId);
+      } catch (err) {
+        console.warn('[Supabase Sync] Falha ao excluir na nuvem:', err);
+      }
+    }
+
     return { success: true };
   }
 
-  toggleUserActive(userId) {
+  async toggleUserActive(userId) {
     if (userId === 'admin-001') {
       return { success: false, error: 'O administrador principal não pode ser desativado.' };
     }
@@ -245,6 +392,16 @@ class AuthManager {
         }
       }
     } catch (e) {}
+
+    if (window.supabaseClient) {
+      try {
+        await window.supabaseClient.from('superbt_users').update({
+          active: user.active
+        }).eq('id', userId);
+      } catch (err) {
+        console.warn('[Supabase Sync] Falha ao atualizar status na nuvem:', err);
+      }
+    }
 
     return { success: true, active: user.active };
   }

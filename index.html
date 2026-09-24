@@ -621,7 +621,10 @@
     <div class="modal-content modal-admin-content">
       <div class="modal-header">
         <h3 class="modal-title">👥 Cadastro e Gerenciamento de Usuários</h3>
-        <button class="btn-close" id="btn-close-admin-modal">&times;</button>
+        <div style="display:flex; align-items:center; gap:0.6rem;">
+          <button type="button" id="btn-open-supabase-modal" class="btn-supabase-status" title="Configurar conexão de sincronização Supabase">☁️ Nuvem Supabase</button>
+          <button class="btn-close" id="btn-close-admin-modal">&times;</button>
+        </div>
       </div>
       <div class="modal-body">
         <!-- Formulário criar usuário -->
@@ -700,6 +703,37 @@
     </div>
   </div>
 
+  <!-- Modal Conexão Nuvem Supabase -->
+  <div class="modal-overlay" id="modal-supabase-config" style="display:none;">
+    <div class="modal-content modal-supabase-content">
+      <div class="modal-header">
+        <h3 class="modal-title">☁️ Sincronização em Nuvem (Supabase)</h3>
+        <button class="btn-close" id="btn-close-supabase-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="supabase-status-banner" class="supabase-status-banner">
+          <span id="supabase-status-txt">🟡 Verificando conexão...</span>
+        </div>
+        <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:1rem; line-height:1.5;">
+          Conecte seu projeto do <strong>Supabase</strong> para que qualquer usuário criado pelo administrador seja sincronizado instantaneamente em todos os celulares, computadores e na Vercel.
+        </p>
+        <div class="admin-form-group" style="margin-bottom:0.75rem;">
+          <label class="admin-form-label">Project URL (ex: https://xyz.supabase.co)</label>
+          <input type="text" id="supabase-input-url" class="admin-form-input" placeholder="https://xxxxxxxxxxxx.supabase.co" />
+        </div>
+        <div class="admin-form-group" style="margin-bottom:0.75rem;">
+          <label class="admin-form-label">API Key / Anon Public Key</label>
+          <input type="password" id="supabase-input-key" class="admin-form-input" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." />
+        </div>
+        <div class="admin-form-feedback" id="supabase-feedback"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="btn-cancel-supabase" class="btn btn-secondary">Fechar</button>
+        <button type="button" id="btn-save-supabase" class="btn btn-primary" style="background: linear-gradient(135deg, #2ec4b6, #0096c7); border:none; font-weight:700;">💾 Salvar e Sincronizar</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal Compartilhar -->
   <div class="modal-overlay" id="modal-share" style="display:none;">
     <div class="modal-content">
@@ -774,6 +808,9 @@
     </div>
   </div>
 
+  <!-- Supabase Client CDN & Config -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="src/js/supabase-config.js"></script>
   <script src="src/js/tournament-config.js"></script>
   <script src="src/js/round-robin-engine.js"></script>
   <script src="src/js/tournament-state.js"></script>

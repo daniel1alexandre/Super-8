@@ -766,3 +766,54 @@
   font-size: 0.9rem;
   pointer-events: none;
 }
+
+/* Supabase Modal & Status */
+.btn-supabase-status {
+  background: rgba(46, 196, 182, 0.15);
+  border: 1px solid rgba(46, 196, 182, 0.35);
+  color: #2ec4b6;
+  border-radius: var(--radius-full);
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 0.3rem 0.75rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: all 0.2s ease;
+}
+
+.btn-supabase-status:hover {
+  background: rgba(46, 196, 182, 0.25);
+  border-color: #2ec4b6;
+}
+
+.modal-supabase-content {
+  max-width: 520px;
+}
+
+.supabase-status-banner {
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+}
+
+.supabase-status-banner.connected {
+  background: rgba(46, 196, 182, 0.12);
+  border-color: rgba(46, 196, 182, 0.3);
+  color: #2ec4b6;
+}
+
+.supabase-status-banner.disconnected {
+  background: rgba(255, 159, 28, 0.12);
+  border-color: rgba(255, 159, 28, 0.3);
+  color: #ff9f1c;
+}
