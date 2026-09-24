@@ -1,4 +1,4 @@
-﻿/**
+/**
  * SUPER BT — CONFIGURAÇÃO DO SUPABASE
  * Sincronização em nuvem em tempo real para múltiplos aparelhos e Vercel.
  */
@@ -8,7 +8,7 @@
 
   // Configuração padrão inserida no código (fixa para todos os aparelhos)
   const DEFAULT_CONFIG = {
-    url: '',
+    url: 'https://ayenwgyymcqjzyadtqdv.supabase.co',
     anonKey: ''
   };
 
