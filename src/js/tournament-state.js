@@ -1,6 +1,7 @@
 /**
  * SUPER BEACH TENNIS - GERENCIAMENTO DE ESTADO MULTI-TORNEIOS & CLASSIFICAÇÃO
  * Suporta múltiplos torneios ativos simultaneamente, com chaveamento e estatísticas isoladas.
+ * Sincronização em tempo real via Firebase Firestore.
  */
 const STORAGE_KEY = 'SUPER_BEACH_TENNIS_V4';
 const V3_STORAGE_KEY = 'SUPER_BEACH_TENNIS_V3';
@@ -8,7 +9,11 @@ const V3_STORAGE_KEY = 'SUPER_BEACH_TENNIS_V3';
 class TournamentStateManager {
   constructor() {
     this._defaultState = this.getInitialState();
+    this._realtimeUnsubscribe = null;
+    this._syncInProgress = false;       // Evita loops de gravação
+    this._lastSyncTimestamp = 0;        // Debounce de sincronização
     this.data = this.loadState();
+    this._initFirebaseSync();
   }
 
   getInitialState() {
@@ -75,11 +80,246 @@ class TournamentStateManager {
     };
   }
 
-  saveState() {
+  /* ═══════════════════════════════════════════════════════
+     SAVE STATE — Local + Firebase Firestore
+  ═══════════════════════════════════════════════════════ */
+
+  saveState(immediate = false) {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(this.data));
     } catch(e) {}
+
+    if (this._syncTimeout) {
+      clearTimeout(this._syncTimeout);
+      this._syncTimeout = null;
+    }
+
+    if (immediate) {
+      this._syncToFirebase();
+    } else {
+      this._syncTimeout = setTimeout(() => {
+        this._syncToFirebase();
+      }, 300);
+    }
   }
+
+  /* ═══════════════════════════════════════════════════════
+     FIREBASE FIRESTORE — Sincronização em Tempo Real
+  ═══════════════════════════════════════════════════════ */
+
+  _getDb() {
+    return (window.FirebaseConfig && window.FirebaseConfig.isReady())
+      ? window.FirebaseConfig.getDb()
+      : null;
+  }
+
+  _initFirebaseSync() {
+    // Tenta sincronizar ao iniciar
+    setTimeout(() => { this._pullFromFirebase(); }, 500);
+
+    // Configura o listener de tempo real
+    if (this._getDb()) {
+      this._setupRealtimeListener();
+    } else if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+      window.addEventListener('load', () => {
+        setTimeout(() => {
+          if (this._getDb()) {
+            this._setupRealtimeListener();
+            this._pullFromFirebase();
+          }
+        }, 800);
+      });
+    }
+  }
+
+  _setupRealtimeListener() {
+    const db = this._getDb();
+    if (!db) return;
+
+    if (this._realtimeUnsubscribe) {
+      try { this._realtimeUnsubscribe(); } catch(e) {}
+    }
+
+    this._realtimeUnsubscribe = db.collection('superbt_tournaments')
+      .onSnapshot((snapshot) => {
+        // Ignora se os dados vieram da escrita pendente deste próprio cliente
+        if (snapshot.metadata && snapshot.metadata.hasPendingWrites) return;
+
+        let hasRemovals = false;
+        if (snapshot.docChanges) {
+          snapshot.docChanges().forEach(change => {
+            if (change.type === 'removed') {
+              const removedId = change.doc.id;
+              const idx = this.data.tournaments.findIndex(t => t.id === removedId);
+              if (idx !== -1) {
+                this.data.tournaments.splice(idx, 1);
+                hasRemovals = true;
+                if (this.data.activeTournamentId === removedId) {
+                  this.data.activeTournamentId = this.data.tournaments.length > 0 ? this.data.tournaments[this.data.tournaments.length - 1].id : null;
+                }
+              }
+            }
+          });
+        }
+
+        const remoteTournaments = [];
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          if (data && data.tournamentData) {
+            remoteTournaments.push({
+              docId: doc.id,
+              ...data.tournamentData,
+              _updatedAt: data.updatedAt || 0
+            });
+          }
+        });
+
+        if (remoteTournaments.length > 0 || hasRemovals) {
+          this._mergeRemoteTournaments(remoteTournaments, hasRemovals);
+        }
+      }, (err) => {
+        console.warn('[Firebase Tournaments] Erro no listener em tempo real:', err);
+      });
+
+    console.log('[Firebase Tournaments] Escuta em tempo real ativada para superbt_tournaments');
+  }
+
+  _mergeRemoteTournaments(remoteTournaments, forceChanged = false) {
+    const currentActiveId = this.data.activeTournamentId;
+    const localMap = new Map();
+    this.data.tournaments.forEach(t => localMap.set(t.id, t));
+
+    let changed = forceChanged;
+
+    remoteTournaments.forEach(remote => {
+      const localT = localMap.get(remote.id);
+      const remoteUpdated = remote._updatedAt || 0;
+      const localUpdated  = (localT && localT._updatedAt) || 0;
+
+      // Se o torneio remoto for mais recente OU não existir localmente, usar remoto
+      if (!localT || remoteUpdated > localUpdated) {
+        const cleanRemote = { ...remote };
+        delete cleanRemote.docId;
+        localMap.set(remote.id, cleanRemote);
+        changed = true;
+      }
+    });
+
+    if (changed) {
+      this.data.tournaments = Array.from(localMap.values());
+
+      // Preservar o torneio ativo do aparelho atual se ele existir
+      if (currentActiveId && this.data.tournaments.find(t => t.id === currentActiveId)) {
+        this.data.activeTournamentId = currentActiveId;
+      } else if (this.data.tournaments.length > 0 && !this.data.activeTournamentId) {
+        this.data.activeTournamentId = this.data.tournaments[this.data.tournaments.length - 1].id;
+      }
+
+      // Salvar localmente sem re-sincronizar com Firebase (evita loop)
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(this.data));
+      } catch(e) {}
+
+      console.log('[Firebase Tournaments] Torneios atualizados da nuvem:', this.data.tournaments.length);
+
+      // Notificar a UI para re-renderizar em tempo real em qualquer aparelho
+      if (typeof window.onTournamentsSynced === 'function') {
+        window.onTournamentsSynced();
+      }
+    }
+  }
+
+  async _pullFromFirebase() {
+    const db = this._getDb();
+    if (!db) return;
+
+    try {
+      const snapshot = await db.collection('superbt_tournaments').get();
+      const remoteTournaments = [];
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        if (data && data.tournamentData) {
+          remoteTournaments.push({
+            docId: doc.id,
+            ...data.tournamentData,
+            _updatedAt: data.updatedAt || 0
+          });
+        }
+      });
+
+      if (remoteTournaments.length > 0) {
+        this._mergeRemoteTournaments(remoteTournaments);
+      } else if (this.data.tournaments.length > 0) {
+        // Nuvem vazia: enviar tudo para inicializar
+        await this._pushAllToFirebase();
+      }
+    } catch(err) {
+      console.warn('[Firebase Tournaments] Falha ao buscar torneios da nuvem:', err);
+    }
+  }
+
+  async _syncToFirebase() {
+    const db = this._getDb();
+    if (!db || !this.data || !this.data.tournaments) return;
+
+    this._syncInProgress = true;
+    const now = Date.now();
+
+    try {
+      const batch = db.batch();
+
+      this.data.tournaments.forEach(t => {
+        // Marcar timestamp de atualização
+        t._updatedAt = now;
+        const docRef = db.collection('superbt_tournaments').doc(t.id);
+        batch.set(docRef, {
+          tournamentData: t,
+          updatedAt: now,
+          title: t.title || '',
+          format: t.format || '',
+          category: t.category || ''
+        });
+      });
+
+      await batch.commit();
+      this._lastSyncTimestamp = now;
+    } catch(err) {
+      console.warn('[Firebase Tournaments] Falha ao sincronizar torneios:', err);
+    } finally {
+      this._syncInProgress = false;
+    }
+  }
+
+  async _pushAllToFirebase() {
+    return this._syncToFirebase();
+  }
+
+  /**
+   * Deleta um torneio específico do Firebase Firestore
+   */
+  async _deleteFromFirebase(tournamentId) {
+    const db = this._getDb();
+    if (!db) return;
+
+    try {
+      await db.collection('superbt_tournaments').doc(tournamentId).delete();
+      console.log('[Firebase Tournaments] Torneio removido da nuvem:', tournamentId);
+    } catch(err) {
+      console.warn('[Firebase Tournaments] Falha ao remover torneio da nuvem:', err);
+    }
+  }
+
+  /**
+   * Reinicializa o listener em tempo real (chamado após reconexão ao Firebase)
+   */
+  reconnectFirebase() {
+    this._setupRealtimeListener();
+    this._pullFromFirebase();
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     API ORIGINAL (Mantida integralmente)
+  ═══════════════════════════════════════════════════════ */
 
   // Acessa o torneio ativo atual
   getActiveTournament() {
@@ -230,6 +470,9 @@ class TournamentStateManager {
       this.data.activeTournamentId = accessible.length > 0 ? accessible[accessible.length - 1].id : null;
     }
     this.saveState();
+
+    // Remover também do Firebase
+    this._deleteFromFirebase(id);
   }
 
   resetTournament() {

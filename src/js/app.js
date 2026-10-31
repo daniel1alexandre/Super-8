@@ -926,6 +926,36 @@ document.addEventListener("DOMContentLoaded", () => {
     renderUsersList();
   };
 
+  window.onTournamentsSynced = () => {
+    if (!appInitialized) return;
+
+    const screenSelection = document.getElementById("screen-selection");
+    const isSelectionActive = screenSelection && !screenSelection.classList.contains("sel-hidden");
+
+    if (isSelectionActive) {
+      ui.renderActiveTournamentsList();
+      ui.updateActiveTournamentBanner();
+    } else {
+      const active = sm.getActiveTournament();
+      if (active) {
+        ui.renderTournamentSwitcher();
+        ui.updateAppHeader();
+        if (active.phase === 'playing') {
+          ui.renderRoundsNav();
+          ui.renderMatches();
+          ui.renderLeaderboard();
+          ui.updateHeaderProgress();
+          ui._refreshMatchupsIfActive();
+          ui._refreshTvModeIfActive();
+        } else if (active.phase === 'setup') {
+          ui.renderPlayersSetup();
+        }
+      } else {
+        ui.goToSelection();
+      }
+    }
+  };
+
   const modalFirebase             = document.getElementById("modal-firebase-config");
   const btnOpenFirebase           = document.getElementById("btn-open-firebase-modal");
   const btnCloseFirebase          = document.getElementById("btn-close-firebase-modal");
@@ -1048,7 +1078,10 @@ document.addEventListener("DOMContentLoaded", () => {
           auth._setupRealtime();
           await auth.syncFromFirebase();
           renderUsersList();
-          ui.showToast("🔥 Firebase Firestore conectado com sucesso! Usuários sincronizados.");
+          if (sm && typeof sm.reconnectFirebase === 'function') {
+            sm.reconnectFirebase();
+          }
+          ui.showToast("🔥 Firebase Firestore conectado com sucesso! Usuários e torneios sincronizados.");
           setTimeout(closeFirebaseModal, 1200);
         } else {
           if (firebaseFeedback) {
