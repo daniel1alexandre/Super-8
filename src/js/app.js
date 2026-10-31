@@ -665,41 +665,149 @@ document.addEventListener("DOMContentLoaded", () => {
     listBody.innerHTML = "";
     users.forEach(user => {
       const card = document.createElement("div");
-      card.className = "user-card" + (user.active === false ? " inactive" : "");
-      const initials  = (user.displayName || user.username).split(" ").slice(0, 2).map(w => w[0]).join("").toUpperCase();
       const isProtected = user.id === "admin-001";
+      const exp = auth.getUserExpiration(user);
+      const plainPwd = auth.getUserPassword(user.id);
+
+      card.className = "user-card" +
+        (user.active === false ? " inactive" : "") +
+        (exp.isExpired && !isProtected ? " expired" : "");
+
+      const initials = (user.displayName || user.username).split(" ").slice(0, 2).map(w => w[0]).join("").toUpperCase();
 
       card.innerHTML =
-        `<div class="user-card-avatar role-${user.role}">${initials}</div>` +
-        `<div class="user-card-info">
-           <div class="user-card-name">${user.displayName || user.username}</div>
-           <div class="user-card-username">@${user.username}</div>
-         </div>` +
-        `<div class="user-card-badges">
-           <span class="permission-badge role-${user.role}">${roleLabels[user.role] || user.role}</span>
-           ${user.active === false ? '<span class="badge-inactive">⏸️ Desabilitado</span>' : '<span class="badge-active">🟢 Habilitado</span>'}
-         </div>` +
-        `<div class="user-card-actions">
-           <button class="btn-user-action btn-change-pwd" data-uid="${user.id}" data-uname="${user.displayName || user.username}" title="Alterar senha">🔑</button>
-           ${!isProtected ? `<button class="btn-user-action btn-toggle-active" data-uid="${user.id}" title="${user.active === false ? "Habilitar" : "Desabilitar"} usuário">${user.active === false ? "✅" : "⏸️"}</button>` : ""}
-           ${!isProtected ? `<button class="btn-user-action btn-delete-user" data-uid="${user.id}" data-uname="${user.displayName || user.username}" title="Excluir usuário">🗑️</button>` : ""}
+        `<div class="user-card-top">
+           <div class="user-card-avatar role-${user.role}">${initials}</div>
+           <div class="user-card-info">
+             <div class="user-card-name">${user.displayName || user.username}</div>
+             <div class="user-card-username">@${user.username}</div>
+           </div>
+           <div class="user-card-badges">
+             <span class="permission-badge role-${user.role}">${roleLabels[user.role] || user.role}</span>
+             ${user.active === false ? '<span class="badge-inactive">⏸️ Desabilitado</span>' : '<span class="badge-active">🟢 Habilitado</span>'}
+             <span class="countdown-badge ${exp.badgeClass}">${exp.label}</span>
+           </div>
+         </div>
+
+         ${!isProtected ? `
+         <div class="user-card-meta">
+           <div class="user-meta-dates">
+             <span>📅 Criado em: <strong>${exp.createdDate}</strong></span>
+             <span>🏁 Vencimento (30 dias): <strong>${exp.expireDate}</strong></span>
+           </div>
+           <div class="user-countdown-bar" title="${exp.label}">
+             <div class="user-countdown-fill ${exp.badgeClass}" style="width: ${exp.percent}%;"></div>
+           </div>
+         </div>
+         ` : `
+         <div class="user-card-meta">
+           <div class="user-meta-dates">
+             <span>👑 <strong>Administrador Mestre</strong></span>
+             <span>⚡ Acesso Permanente e Irrestrito</span>
+           </div>
+         </div>
+         `}
+
+         <!-- Senha salva e acessível pelo Administrador -->
+         <div class="user-pwd-row">
+           <div class="user-pwd-info">
+             <span class="user-pwd-title">🔑 Senha:</span>
+             <span class="user-pwd-display masked" id="pwd-display-${user.id}">••••••••</span>
+           </div>
+           <div class="user-pwd-actions">
+             <button type="button" class="btn-user-action btn-reveal-pwd" data-uid="${user.id}" data-pwd="${plainPwd}" title="Visualizar / Ocultar Senha">👁️</button>
+             <button type="button" class="btn-user-action btn-copy-pwd" data-pwd="${plainPwd}" title="Copiar Senha">📋</button>
+           </div>
+         </div>
+
+         <!-- Ações do usuário -->
+         <div class="user-card-bottom">
+           ${!isProtected ? `
+           <button type="button" class="btn-renew-access" data-uid="${user.id}" data-uname="${user.displayName || user.username}">
+             ✨ Liberar Novo Acesso (+30 dias)
+           </button>
+           ` : `<div></div>`}
+           <div class="user-card-actions">
+             <button class="btn-user-action btn-change-pwd" data-uid="${user.id}" data-uname="${user.displayName || user.username}" title="Alterar senha">🔑</button>
+             ${!isProtected ? `<button class="btn-user-action btn-toggle-active" data-uid="${user.id}" title="${user.active === false ? "Habilitar" : "Desabilitar"} usuário">${user.active === false ? "✅" : "⏸️"}</button>` : ""}
+             ${!isProtected ? `<button class="btn-user-action btn-delete-user" data-uid="${user.id}" data-uname="${user.displayName || user.username}" title="Excluir usuário">🗑️</button>` : ""}
+           </div>
          </div>`;
 
+      // Visualizar / Ocultar Senha
+      const btnReveal = card.querySelector(".btn-reveal-pwd");
+      if (btnReveal) {
+        btnReveal.addEventListener("click", (e) => {
+          const uid = e.currentTarget.dataset.uid;
+          const pwd = e.currentTarget.dataset.pwd;
+          const disp = document.getElementById(`pwd-display-${uid}`);
+          if (!disp) return;
+          const isMasked = disp.classList.contains("masked");
+          if (isMasked) {
+            disp.textContent = pwd;
+            disp.classList.remove("masked");
+            e.currentTarget.textContent = "🙈";
+            e.currentTarget.title = "Ocultar Senha";
+          } else {
+            disp.textContent = "••••••••";
+            disp.classList.add("masked");
+            e.currentTarget.textContent = "👁️";
+            e.currentTarget.title = "Visualizar Senha";
+          }
+        });
+      }
+
+      // Copiar Senha
+      const btnCopy = card.querySelector(".btn-copy-pwd");
+      if (btnCopy) {
+        btnCopy.addEventListener("click", async (e) => {
+          const pwd = e.currentTarget.dataset.pwd;
+          try {
+            await navigator.clipboard.writeText(pwd);
+            ui.showToast("📋 Senha copiada para a área de transferência!");
+            const prev = e.currentTarget.textContent;
+            e.currentTarget.textContent = "✅";
+            setTimeout(() => { e.currentTarget.textContent = prev; }, 1500);
+          } catch (err) {
+            prompt("Copie a senha manualmente:", pwd);
+          }
+        });
+      }
+
+      // Liberar Novo Acesso (+30 dias)
+      const btnRenew = card.querySelector(".btn-renew-access");
+      if (btnRenew) {
+        btnRenew.addEventListener("click", async (e) => {
+          const uid = e.currentTarget.dataset.uid;
+          const uname = e.currentTarget.dataset.uname;
+          const res = await auth.renewAccess(uid, 30);
+          if (res.success) {
+            renderUsersList();
+            ui.showToast(`✨ Acesso liberado para "${uname}"! Mais 30 dias concedidos (válido até ${res.formattedDate}).`, 5000);
+          } else {
+            ui.showToast("❌ " + res.error);
+          }
+        });
+      }
+
+      // Alterar Senha
       card.querySelector(".btn-change-pwd").addEventListener("click", e => {
         openChangePwdModal(e.currentTarget.dataset.uid, e.currentTarget.dataset.uname);
       });
 
+      // Habilitar / Desabilitar
       const btnToggle = card.querySelector(".btn-toggle-active");
       if (btnToggle) {
         btnToggle.addEventListener("click", async (e) => {
           const result = await auth.toggleUserActive(e.currentTarget.dataset.uid);
           if (result.success) {
             renderUsersList();
-            ui.showToast(result.active ? "✅ Usuário ativado." : "⏸️ Usuário desativado (sem acesso ao app).");
+            ui.showToast(result.active ? "✅ Usuário ativado com sucesso." : "⏸️ Usuário desativado (sem acesso ao app).");
           }
         });
       }
 
+      // Excluir Usuário
       const btnDel = card.querySelector(".btn-delete-user");
       if (btnDel) {
         btnDel.addEventListener("click", async (e) => {
@@ -731,6 +839,8 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     const roleEl = document.getElementById("new-user-role");
     if (roleEl) roleEl.value = "operator";
+    const valEl = document.getElementById("new-user-validity");
+    if (valEl) valEl.value = "30";
     const activeEl = document.getElementById("new-user-active");
     if (activeEl) activeEl.value = "true";
     if (adminFeedback) adminFeedback.className = "admin-form-feedback";
@@ -743,15 +853,16 @@ document.addEventListener("DOMContentLoaded", () => {
       const displayName = (document.getElementById("new-user-displayname")?.value || "").trim();
       const password    = (document.getElementById("new-user-password")?.value || "");
       const role        = document.getElementById("new-user-role")?.value || "operator";
+      const daysValid   = document.getElementById("new-user-validity") ? parseInt(document.getElementById("new-user-validity").value, 10) : 30;
       const active      = document.getElementById("new-user-active") ? (document.getElementById("new-user-active").value === "true") : true;
 
       if (!username)           { showAdminFeedback("⚠️ Informe o nome de usuário (login).", "error"); return; }
       if (password.length < 4) { showAdminFeedback("⚠️ A senha deve ter no mínimo 4 caracteres.", "error"); return; }
 
-      const result = await auth.createUser({ username, displayName, password, role, active });
+      const result = await auth.createUser({ username, displayName, password, role, active, daysValid });
       if (!result.success) { showAdminFeedback("❌ " + result.error, "error"); return; }
 
-      showAdminFeedback("✅ Usuário \"" + (displayName || username) + "\" criado e sincronizado com sucesso!", "success");
+      showAdminFeedback("✅ Usuário \"" + (displayName || username) + "\" criado com contador de " + daysValid + " dias ativado!", "success");
       clearAdminForm();
       renderUsersList();
     });
@@ -810,86 +921,139 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // ── Sincronização em Tempo Real (Supabase) ──────────
+  // ── Sincronização em Tempo Real (Firebase Firestore) ──────────
   window.onUsersSynced = () => {
     renderUsersList();
   };
 
-  const modalSupabase        = document.getElementById("modal-supabase-config");
-  const btnOpenSupabase      = document.getElementById("btn-open-supabase-modal");
-  const btnCloseSupabase     = document.getElementById("btn-close-supabase-modal");
-  const btnCancelSupabase    = document.getElementById("btn-cancel-supabase");
-  const btnSaveSupabase      = document.getElementById("btn-save-supabase");
-  const supabaseInputUrl     = document.getElementById("supabase-input-url");
-  const supabaseInputKey     = document.getElementById("supabase-input-key");
-  const supabaseStatusTxt    = document.getElementById("supabase-status-txt");
-  const supabaseStatusBanner = document.getElementById("supabase-status-banner");
-  const supabaseFeedback     = document.getElementById("supabase-feedback");
+  const modalFirebase             = document.getElementById("modal-firebase-config");
+  const btnOpenFirebase           = document.getElementById("btn-open-firebase-modal");
+  const btnCloseFirebase          = document.getElementById("btn-close-firebase-modal");
+  const btnCancelFirebase         = document.getElementById("btn-cancel-firebase");
+  const btnSaveFirebase           = document.getElementById("btn-save-firebase");
+  const firebasePasteJson         = document.getElementById("firebase-paste-json");
+  const btnParseJson              = document.getElementById("btn-firebase-parse-json");
+  const firebaseInputProjectId    = document.getElementById("firebase-input-projectid");
+  const firebaseInputApiKey       = document.getElementById("firebase-input-apikey");
+  const firebaseInputAuthDomain   = document.getElementById("firebase-input-authdomain");
+  const firebaseInputStorageBucket = document.getElementById("firebase-input-storagebucket");
+  const firebaseInputSenderId     = document.getElementById("firebase-input-senderid");
+  const firebaseInputAppId        = document.getElementById("firebase-input-appid");
+  const firebaseStatusTxt         = document.getElementById("firebase-status-txt");
+  const firebaseStatusBanner      = document.getElementById("firebase-status-banner");
+  const firebaseFeedback          = document.getElementById("firebase-feedback");
 
-  function openSupabaseModal() {
-    const isReady = window.SupabaseConfig && window.SupabaseConfig.isReady();
-    if (supabaseStatusBanner && supabaseStatusTxt) {
+  function openFirebaseModal() {
+    const isReady = window.FirebaseConfig && window.FirebaseConfig.isReady();
+    if (firebaseStatusBanner && firebaseStatusTxt) {
       if (isReady) {
-        supabaseStatusBanner.className = "supabase-status-banner connected";
-        supabaseStatusTxt.textContent = "🟢 Conectado à Nuvem Supabase (Sincronização Ativa)";
+        firebaseStatusBanner.className = "firebase-status-banner connected";
+        firebaseStatusTxt.textContent = "🟢 Conectado ao Firebase Firestore (Sincronização Ativa)";
       } else {
-        supabaseStatusBanner.className = "supabase-status-banner disconnected";
-        supabaseStatusTxt.textContent = "🟡 Aguardando Chaves de Conexão do Supabase";
+        firebaseStatusBanner.className = "firebase-status-banner disconnected";
+        firebaseStatusTxt.textContent = "🟡 Aguardando Chaves de Conexão do Firebase";
       }
     }
 
-    if (window.SupabaseConfig) {
-      const cfg = window.SupabaseConfig.getConfig();
+    if (window.FirebaseConfig) {
+      const cfg = window.FirebaseConfig.getConfig();
       if (cfg) {
-        if (supabaseInputUrl) supabaseInputUrl.value = cfg.url || "";
-        if (supabaseInputKey) supabaseInputKey.value = cfg.anonKey || "";
+        if (firebaseInputProjectId)     firebaseInputProjectId.value     = cfg.projectId || "";
+        if (firebaseInputApiKey)        firebaseInputApiKey.value        = cfg.apiKey || "";
+        if (firebaseInputAuthDomain)    firebaseInputAuthDomain.value    = cfg.authDomain || "";
+        if (firebaseInputStorageBucket) firebaseInputStorageBucket.value = cfg.storageBucket || "";
+        if (firebaseInputSenderId)      firebaseInputSenderId.value      = cfg.messagingSenderId || "";
+        if (firebaseInputAppId)         firebaseInputAppId.value         = cfg.appId || "";
       }
     }
-    if (supabaseFeedback) supabaseFeedback.className = "admin-form-feedback";
-    if (modalSupabase) modalSupabase.style.display = "flex";
+    if (firebaseFeedback) firebaseFeedback.className = "admin-form-feedback";
+    if (modalFirebase) modalFirebase.style.display = "flex";
   }
 
-  function closeSupabaseModal() {
-    if (modalSupabase) modalSupabase.style.display = "none";
+  function closeFirebaseModal() {
+    if (modalFirebase) modalFirebase.style.display = "none";
   }
 
-  if (btnOpenSupabase)   btnOpenSupabase.addEventListener("click", openSupabaseModal);
-  if (btnCloseSupabase)  btnCloseSupabase.addEventListener("click", closeSupabaseModal);
-  if (btnCancelSupabase) btnCancelSupabase.addEventListener("click", closeSupabaseModal);
-  if (modalSupabase) modalSupabase.addEventListener("click", e => { if (e.target === modalSupabase) closeSupabaseModal(); });
+  if (btnOpenFirebase)   btnOpenFirebase.addEventListener("click", openFirebaseModal);
+  if (btnCloseFirebase)  btnCloseFirebase.addEventListener("click", closeFirebaseModal);
+  if (btnCancelFirebase) btnCancelFirebase.addEventListener("click", closeFirebaseModal);
+  if (modalFirebase)     modalFirebase.addEventListener("click", e => { if (e.target === modalFirebase) closeFirebaseModal(); });
 
-  if (btnSaveSupabase) {
-    btnSaveSupabase.addEventListener("click", async () => {
-      const url = (supabaseInputUrl?.value || "").trim();
-      const key = (supabaseInputKey?.value || "").trim();
+  // Botão para extrair JSON colado
+  if (btnParseJson && firebasePasteJson) {
+    btnParseJson.addEventListener("click", () => {
+      const text = (firebasePasteJson.value || "").trim();
+      if (!text) {
+        if (firebaseFeedback) {
+          firebaseFeedback.textContent = "⚠️ Cole o código de configuração do Firebase primeiro.";
+          firebaseFeedback.className = "admin-form-feedback error";
+        }
+        return;
+      }
+      if (window.FirebaseConfig) {
+        const parsed = window.FirebaseConfig.parseConfigInput(text);
+        if (parsed) {
+          if (firebaseInputProjectId)     firebaseInputProjectId.value     = parsed.projectId || "";
+          if (firebaseInputApiKey)        firebaseInputApiKey.value        = parsed.apiKey || "";
+          if (firebaseInputAuthDomain)    firebaseInputAuthDomain.value    = parsed.authDomain || "";
+          if (firebaseInputStorageBucket) firebaseInputStorageBucket.value = parsed.storageBucket || "";
+          if (firebaseInputSenderId)      firebaseInputSenderId.value      = parsed.messagingSenderId || "";
+          if (firebaseInputAppId)         firebaseInputAppId.value         = parsed.appId || "";
+          if (firebaseFeedback) {
+            firebaseFeedback.textContent = "✨ Configurações do Firebase extraídas com sucesso! Clique em 'Salvar e Sincronizar'.";
+            firebaseFeedback.className = "admin-form-feedback success";
+          }
+        } else {
+          if (firebaseFeedback) {
+            firebaseFeedback.textContent = "❌ Não foi possível extrair os campos. Verifique o formato colado.";
+            firebaseFeedback.className = "admin-form-feedback error";
+          }
+        }
+      }
+    });
+  }
 
-      if (!url || !key) {
-        if (supabaseFeedback) {
-          supabaseFeedback.textContent = "⚠️ Informe o Project URL e a Anon Public Key.";
-          supabaseFeedback.className = "admin-form-feedback error";
+  if (btnSaveFirebase) {
+    btnSaveFirebase.addEventListener("click", async () => {
+      const cfg = {
+        projectId:         (firebaseInputProjectId?.value || "").trim(),
+        apiKey:            (firebaseInputApiKey?.value || "").trim(),
+        authDomain:        (firebaseInputAuthDomain?.value || "").trim(),
+        storageBucket:     (firebaseInputStorageBucket?.value || "").trim(),
+        messagingSenderId: (firebaseInputSenderId?.value || "").trim(),
+        appId:             (firebaseInputAppId?.value || "").trim()
+      };
+
+      if (!cfg.projectId || !cfg.apiKey) {
+        if (firebaseFeedback) {
+          firebaseFeedback.textContent = "⚠️ Project ID e API Key são obrigatórios.";
+          firebaseFeedback.className = "admin-form-feedback error";
         }
         return;
       }
 
-      if (window.SupabaseConfig) {
-        const client = window.SupabaseConfig.saveConfig(url, key);
-        if (client) {
-          if (supabaseFeedback) {
-            supabaseFeedback.textContent = "✅ Chaves salvas! Sincronizando com a nuvem...";
-            supabaseFeedback.className = "admin-form-feedback success";
+      if (window.FirebaseConfig) {
+        const res = window.FirebaseConfig.saveConfig(cfg);
+        if (res) {
+          if (firebaseFeedback) {
+            firebaseFeedback.textContent = "✅ Firebase inicializado! Testando conexão...";
+            firebaseFeedback.className = "admin-form-feedback success";
           }
-          if (supabaseStatusBanner && supabaseStatusTxt) {
-            supabaseStatusBanner.className = "supabase-status-banner connected";
-            supabaseStatusTxt.textContent = "🟢 Conectado à Nuvem Supabase (Sincronização Ativa)";
+
+          if (firebaseStatusBanner && firebaseStatusTxt) {
+            firebaseStatusBanner.className = "firebase-status-banner connected";
+            firebaseStatusTxt.textContent = "🟢 Conectado ao Firebase Firestore (Sincronização Ativa)";
           }
-          await auth.syncFromSupabase();
+
+          auth._setupRealtime();
+          await auth.syncFromFirebase();
           renderUsersList();
-          ui.showToast("☁️ Supabase conectado com sucesso! Usuários sincronizados.");
-          setTimeout(closeSupabaseModal, 1200);
+          ui.showToast("🔥 Firebase Firestore conectado com sucesso! Usuários sincronizados.");
+          setTimeout(closeFirebaseModal, 1200);
         } else {
-          if (supabaseFeedback) {
-            supabaseFeedback.textContent = "❌ Falha ao inicializar o cliente Supabase. Verifique a URL e a Chave.";
-            supabaseFeedback.className = "admin-form-feedback error";
+          if (firebaseFeedback) {
+            firebaseFeedback.textContent = "❌ Falha ao inicializar o Firebase. Verifique a API Key e Project ID.";
+            firebaseFeedback.className = "admin-form-feedback error";
           }
         }
       }

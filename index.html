@@ -622,7 +622,7 @@
       <div class="modal-header">
         <h3 class="modal-title">👥 Cadastro e Gerenciamento de Usuários</h3>
         <div style="display:flex; align-items:center; gap:0.6rem;">
-          <button type="button" id="btn-open-supabase-modal" class="btn-supabase-status" title="Configurar conexão de sincronização Supabase">☁️ Nuvem Supabase</button>
+          <button type="button" id="btn-open-firebase-modal" class="btn-firebase-status" title="Configurar conexão de sincronização Firebase">🔥 Nuvem Firebase</button>
           <button class="btn-close" id="btn-close-admin-modal">&times;</button>
         </div>
       </div>
@@ -649,6 +649,15 @@
                 <option value="operator">🎯 Operador — Cria torneios e insere resultados</option>
                 <option value="viewer">👁️ Visualizador — Somente leitura</option>
                 <option value="admin">👑 Administrador — Acesso total</option>
+              </select>
+            </div>
+            <div class="admin-form-group">
+              <label class="admin-form-label">Validade Inicial</label>
+              <select id="new-user-validity" class="admin-form-select">
+                <option value="30" selected>⏳ 30 Dias (Padrão Oficial)</option>
+                <option value="60">⏳ 60 Dias</option>
+                <option value="90">⏳ 90 Dias</option>
+                <option value="365">⏳ 1 Ano (365 Dias)</option>
               </select>
             </div>
             <div class="admin-form-group">
@@ -703,33 +712,66 @@
     </div>
   </div>
 
-  <!-- Modal Conexão Nuvem Supabase -->
-  <div class="modal-overlay" id="modal-supabase-config" style="display:none;">
-    <div class="modal-content modal-supabase-content">
+  <!-- Modal Conexão Nuvem Firebase -->
+  <div class="modal-overlay" id="modal-firebase-config" style="display:none;">
+    <div class="modal-content modal-firebase-content">
       <div class="modal-header">
-        <h3 class="modal-title">☁️ Sincronização em Nuvem (Supabase)</h3>
-        <button class="btn-close" id="btn-close-supabase-modal">&times;</button>
+        <h3 class="modal-title">🔥 Sincronização em Nuvem (Firebase Firestore)</h3>
+        <button class="btn-close" id="btn-close-firebase-modal">&times;</button>
       </div>
       <div class="modal-body">
-        <div id="supabase-status-banner" class="supabase-status-banner">
-          <span id="supabase-status-txt">🟡 Verificando conexão...</span>
+        <div id="firebase-status-banner" class="firebase-status-banner">
+          <span id="firebase-status-txt">🟡 Verificando conexão com Firebase...</span>
         </div>
         <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:1rem; line-height:1.5;">
-          Conecte seu projeto do <strong>Supabase</strong> para que qualquer usuário criado pelo administrador seja sincronizado instantaneamente em todos os celulares, computadores e na Vercel.
+          Conecte seu projeto do <strong>Google Firebase</strong> para que os dados e usuários cadastrados pelo administrador sejam sincronizados em tempo real em todos os celulares, computadores e no Vercel.
         </p>
-        <div class="admin-form-group" style="margin-bottom:0.75rem;">
-          <label class="admin-form-label">Project URL (ex: https://xyz.supabase.co)</label>
-          <input type="text" id="supabase-input-url" class="admin-form-input" placeholder="https://xxxxxxxxxxxx.supabase.co" />
+
+        <!-- Preenchimento Automático -->
+        <div class="admin-form-group" style="margin-bottom:0.85rem; background: rgba(255,255,255,0.03); padding:0.75rem; border-radius:8px; border:1px dashed rgba(255,255,255,0.15);">
+          <label class="admin-form-label" style="display:flex; justify-content:space-between; align-items:center;">
+            <span>Opção 1: Colar Configuração do Console Firebase</span>
+          </label>
+          <textarea id="firebase-paste-json" class="admin-form-input" rows="3" placeholder='Cole aqui o código do Firebase Console: const firebaseConfig = { apiKey: "...", projectId: "..." };' style="font-family: monospace; font-size: 0.8rem; resize: vertical;"></textarea>
+          <button type="button" id="btn-firebase-parse-json" class="btn btn-secondary" style="margin-top:0.4rem; font-size:0.78rem; padding:0.35rem 0.75rem; width:100%; justify-content:center;">⚡ Preencher Campos Automaticamente</button>
         </div>
-        <div class="admin-form-group" style="margin-bottom:0.75rem;">
-          <label class="admin-form-label">API Key / Anon Public Key</label>
-          <input type="password" id="supabase-input-key" class="admin-form-input" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." />
+
+        <div style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-muted); margin-bottom:0.5rem; font-weight:700;">
+          Ou preencha manualmente:
         </div>
-        <div class="admin-form-feedback" id="supabase-feedback"></div>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:0.6rem; margin-bottom:0.75rem;">
+          <div class="admin-form-group">
+            <label class="admin-form-label">Project ID (*)</label>
+            <input type="text" id="firebase-input-projectid" class="admin-form-input" placeholder="ex: meu-torneio-bt" />
+          </div>
+          <div class="admin-form-group">
+            <label class="admin-form-label">API Key (*)</label>
+            <input type="password" id="firebase-input-apikey" class="admin-form-input" placeholder="AIzaSy..." />
+          </div>
+          <div class="admin-form-group">
+            <label class="admin-form-label">Auth Domain</label>
+            <input type="text" id="firebase-input-authdomain" class="admin-form-input" placeholder="meu-torneio-bt.firebaseapp.com" />
+          </div>
+          <div class="admin-form-group">
+            <label class="admin-form-label">Storage Bucket</label>
+            <input type="text" id="firebase-input-storagebucket" class="admin-form-input" placeholder="meu-torneio-bt.appspot.com" />
+          </div>
+          <div class="admin-form-group">
+            <label class="admin-form-label">Messaging Sender ID</label>
+            <input type="text" id="firebase-input-senderid" class="admin-form-input" placeholder="ex: 1029384756" />
+          </div>
+          <div class="admin-form-group">
+            <label class="admin-form-label">App ID</label>
+            <input type="text" id="firebase-input-appid" class="admin-form-input" placeholder="1:1029384756:web:abcd1234" />
+          </div>
+        </div>
+
+        <div class="admin-form-feedback" id="firebase-feedback"></div>
       </div>
       <div class="modal-footer">
-        <button type="button" id="btn-cancel-supabase" class="btn btn-secondary">Fechar</button>
-        <button type="button" id="btn-save-supabase" class="btn btn-primary" style="background: linear-gradient(135deg, #2ec4b6, #0096c7); border:none; font-weight:700;">💾 Salvar e Sincronizar</button>
+        <button type="button" id="btn-cancel-firebase" class="btn btn-secondary">Fechar</button>
+        <button type="button" id="btn-save-firebase" class="btn btn-primary" style="background: linear-gradient(135deg, #ff9f1c, #f59e0b); border:none; font-weight:700; color:#040e1e;">💾 Salvar e Sincronizar Firebase</button>
       </div>
     </div>
   </div>
@@ -808,9 +850,10 @@
     </div>
   </div>
 
-  <!-- Supabase Client CDN & Config -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="src/js/supabase-config.js"></script>
+  <!-- Firebase SDK (Compat v10) & Config -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  <script src="src/js/firebase-config.js"></script>
   <script src="src/js/tournament-config.js"></script>
   <script src="src/js/round-robin-engine.js"></script>
   <script src="src/js/tournament-state.js"></script>

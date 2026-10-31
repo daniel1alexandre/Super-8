@@ -611,26 +611,41 @@
 /* Card de usuário */
 .user-card {
   display: flex;
-  align-items: center;
-  gap: 0.85rem;
-  padding: 0.85rem 1rem;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0.95rem 1.1rem;
   background: var(--bg-surface-elevated);
   border-radius: var(--radius-md);
   border: 1px solid var(--border-subtle);
-  margin-bottom: 0.6rem;
-  transition: border-color 0.2s;
+  margin-bottom: 0.75rem;
+  transition: all 0.2s ease;
 }
 
-.user-card:hover { border-color: rgba(255, 255, 255, 0.15); }
+.user-card:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
 
 .user-card.inactive {
-  opacity: 0.5;
-  filter: grayscale(0.4);
+  opacity: 0.65;
+  filter: grayscale(0.35);
+}
+
+.user-card.expired {
+  border-color: rgba(239, 68, 68, 0.35);
+  background: linear-gradient(180deg, var(--bg-surface-elevated) 0%, rgba(239, 68, 68, 0.04) 100%);
+}
+
+.user-card-top {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  width: 100%;
 }
 
 .user-card-avatar {
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -705,6 +720,185 @@
   border: 1px solid rgba(46, 196, 182, 0.3);
 }
 
+/* Badges da contagem de 30 dias */
+.countdown-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.22rem 0.6rem;
+  border-radius: var(--radius-full);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  white-space: nowrap;
+}
+
+.countdown-badge.badge-days-ok {
+  background: rgba(46, 196, 182, 0.15);
+  color: #2ec4b6;
+  border: 1px solid rgba(46, 196, 182, 0.35);
+}
+
+.countdown-badge.badge-days-warning {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  animation: pulse-warn 2s infinite ease-in-out;
+}
+
+.countdown-badge.badge-days-expired {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+.countdown-badge.badge-days-admin {
+  background: rgba(255, 159, 28, 0.15);
+  color: #ff9f1c;
+  border: 1px solid rgba(255, 159, 28, 0.35);
+}
+
+@keyframes pulse-warn {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.75; }
+}
+
+/* Bloco de expiração e progresso de 30 dias */
+.user-card-meta {
+  background: rgba(0, 0, 0, 0.22);
+  border-radius: 8px;
+  padding: 0.55rem 0.8rem;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.user-meta-dates {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.user-meta-dates strong {
+  color: var(--text-primary);
+}
+
+.user-countdown-bar {
+  width: 100%;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 0.45rem;
+}
+
+.user-countdown-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+.user-countdown-fill.badge-days-ok {
+  background: linear-gradient(90deg, #10b981, #2ec4b6);
+}
+
+.user-countdown-fill.badge-days-warning {
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+}
+
+.user-countdown-fill.badge-days-expired {
+  background: #ef4444;
+}
+
+.user-countdown-fill.badge-days-admin {
+  background: linear-gradient(90deg, #ff9f1c, #f59e0b);
+}
+
+/* Linha da senha visível para o Administrador */
+.user-pwd-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.82rem;
+  gap: 0.6rem;
+}
+
+.user-pwd-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.user-pwd-title {
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.user-pwd-display {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #38bdf8;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 0.15rem 0.55rem;
+  border-radius: 5px;
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  letter-spacing: 1px;
+}
+
+.user-pwd-display.masked {
+  letter-spacing: 2px;
+  color: var(--text-muted);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.user-pwd-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+/* Barra inferior de ações do usuário */
+.user-card-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding-top: 0.2rem;
+}
+
+.btn-renew-access {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 0.45rem 0.85rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25);
+  transition: all 0.2s ease;
+}
+
+.btn-renew-access:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
+  filter: brightness(1.1);
+}
+
 .user-card-actions {
   display: flex;
   gap: 0.35rem;
@@ -730,6 +924,8 @@
 .btn-user-action.btn-toggle-active:hover { background: rgba(16, 185, 129, 0.15); color: #34d399; border-color: rgba(16, 185, 129, 0.3); }
 .btn-user-action.btn-delete-user:hover   { background: rgba(255, 51, 102, 0.15); color: #ff6b8a; border-color: rgba(255, 51, 102, 0.3); }
 .btn-user-action.btn-change-pwd:hover    { background: rgba(0, 150, 199, 0.15); color: var(--accent-cyan); border-color: rgba(0, 150, 199, 0.3); }
+.btn-user-action.btn-reveal-pwd:hover   { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border-color: rgba(56, 189, 248, 0.3); }
+.btn-user-action.btn-copy-pwd:hover     { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border-color: rgba(245, 158, 11, 0.3); }
 
 /* Admin form error/success */
 .admin-form-feedback {
@@ -767,11 +963,11 @@
   pointer-events: none;
 }
 
-/* Supabase Modal & Status */
-.btn-supabase-status {
-  background: rgba(46, 196, 182, 0.15);
-  border: 1px solid rgba(46, 196, 182, 0.35);
-  color: #2ec4b6;
+/* Firebase Modal & Status */
+.btn-firebase-status, .btn-supabase-status {
+  background: rgba(255, 159, 28, 0.15);
+  border: 1px solid rgba(255, 159, 28, 0.4);
+  color: #ff9f1c;
   border-radius: var(--radius-full);
   font-size: 0.78rem;
   font-weight: 700;
@@ -783,16 +979,17 @@
   transition: all 0.2s ease;
 }
 
-.btn-supabase-status:hover {
-  background: rgba(46, 196, 182, 0.25);
-  border-color: #2ec4b6;
+.btn-firebase-status:hover, .btn-supabase-status:hover {
+  background: rgba(255, 159, 28, 0.25);
+  border-color: #ffa000;
+  color: #ffb703;
 }
 
-.modal-supabase-content {
-  max-width: 520px;
+.modal-firebase-content, .modal-supabase-content {
+  max-width: 540px;
 }
 
-.supabase-status-banner {
+.firebase-status-banner, .supabase-status-banner {
   padding: 0.75rem 1rem;
   border-radius: var(--radius-md);
   margin-bottom: 1rem;
@@ -806,13 +1003,13 @@
   color: var(--text-primary);
 }
 
-.supabase-status-banner.connected {
-  background: rgba(46, 196, 182, 0.12);
-  border-color: rgba(46, 196, 182, 0.3);
-  color: #2ec4b6;
+.firebase-status-banner.connected, .supabase-status-banner.connected {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.3);
+  color: #34d399;
 }
 
-.supabase-status-banner.disconnected {
+.firebase-status-banner.disconnected, .supabase-status-banner.disconnected {
   background: rgba(255, 159, 28, 0.12);
   border-color: rgba(255, 159, 28, 0.3);
   color: #ff9f1c;
