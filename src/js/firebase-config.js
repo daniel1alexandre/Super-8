@@ -6,14 +6,16 @@
 (function(window) {
   const STORAGE_KEY = 'SUPER_BT_FIREBASE_CONFIG_V1';
 
-  // Configuração padrão opcional (pode ser preenchida diretamente aqui ou salva via interface do app)
+  // Configuração padrão inserida no código (fixa para todos os aparelhos, celulares e Vercel)
   const DEFAULT_CONFIG = {
-    apiKey: '',
-    authDomain: '',
-    projectId: '',
-    storageBucket: '',
-    messagingSenderId: '',
-    appId: ''
+    apiKey: 'AIzaSyBbQzs7kHFB5hh5O6-Qk5G3ehptCmoK3tE',
+    authDomain: 'super-8-b39c7.firebaseapp.com',
+    databaseURL: 'https://super-8-b39c7-default-rtdb.firebaseio.com',
+    projectId: 'super-8-b39c7',
+    storageBucket: 'super-8-b39c7.firebasestorage.app',
+    messagingSenderId: '45720034766',
+    appId: '1:45720034766:web:84d679240384973a469f9f',
+    measurementId: 'G-PGK542KBHZ'
   };
 
   /**
@@ -60,6 +62,18 @@
   }
 
   function getConfig() {
+    if (DEFAULT_CONFIG.apiKey && DEFAULT_CONFIG.projectId) {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && parsed.apiKey && parsed.projectId) {
+            return { ...DEFAULT_CONFIG, ...parsed };
+          }
+        }
+      } catch (e) {}
+      return DEFAULT_CONFIG;
+    }
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
@@ -67,7 +81,7 @@
         if (parsed && parsed.apiKey && parsed.projectId) return parsed;
       }
     } catch (e) {}
-    return (DEFAULT_CONFIG.apiKey && DEFAULT_CONFIG.projectId) ? DEFAULT_CONFIG : null;
+    return null;
   }
 
   function saveConfig(configInput) {
