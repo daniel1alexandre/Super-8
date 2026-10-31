@@ -93,6 +93,23 @@
     } catch (e) {}
   }
 
+  const readyCallbacks = [];
+
+  function onReady(cb) {
+    if (window.firebaseDb) {
+      try { cb(window.firebaseDb); } catch(e) { console.warn(e); }
+    } else {
+      readyCallbacks.push(cb);
+    }
+  }
+
+  function _triggerReady(db) {
+    while (readyCallbacks.length > 0) {
+      const cb = readyCallbacks.shift();
+      try { cb(db); } catch(e) { console.warn(e); }
+    }
+  }
+
   function initClient(customConfig) {
     const cfg = customConfig || getConfig();
     if (!cfg || !cfg.apiKey || !cfg.projectId) {
@@ -102,7 +119,7 @@
     }
 
     if (typeof window.firebase === 'undefined') {
-      console.warn('[Firebase] SDK do Firebase (compat) não carregado.');
+      // No celular a rede móvel pode demorar um pouco para carregar o script CDN do Firebase
       return null;
     }
 
@@ -123,6 +140,7 @@
       window.firebaseApp = app;
       window.firebaseDb = app.firestore();
       console.log('[Firebase] Conectado com sucesso ao Firestore (Projeto:', cfg.projectId + ')');
+      _triggerReady(window.firebaseDb);
       return { app: window.firebaseApp, db: window.firebaseDb };
     } catch (err) {
       console.warn('[Firebase] Falha ao inicializar:', err);
@@ -135,7 +153,6 @@
       return { success: false, error: 'Firebase Firestore não inicializado.' };
     }
     try {
-      // Teste rápido de leitura da coleção superbt_users
       await window.firebaseDb.collection('superbt_users').limit(1).get();
       return { success: true };
     } catch (err) {
@@ -148,6 +165,7 @@
     saveConfig,
     clearConfig,
     initClient,
+    onReady,
     isReady: function() {
       return !!(window.firebaseDb);
     },
@@ -158,8 +176,16 @@
     parseConfigInput
   };
 
-  // Tenta inicializar se as credenciais existirem
-  initClient();
+  // Tenta inicializar com retentativas automáticas (essencial para redes móveis e celulares)
+  let initAttempts = 0;
+  function scheduleInit() {
+    if (initClient()) return;
+    if (initAttempts < 25) {
+      initAttempts++;
+      setTimeout(scheduleInit, 400);
+    }
+  }
+  scheduleInit();
 
 })(window);
 

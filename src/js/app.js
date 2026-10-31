@@ -162,6 +162,19 @@ document.addEventListener("DOMContentLoaded", () => {
         hideLoginScreen();
         updateUserBadge(result.user);
         applyPermissions(result.user.role);
+
+        // Sincronizar dados mais recentes da nuvem imediatamente após login
+        if (sm && typeof sm._pullFromFirebase === 'function') {
+          sm._pullFromFirebase().then(() => {
+            if (typeof window.onTournamentsSynced === 'function') {
+              window.onTournamentsSynced();
+            }
+          });
+        }
+        if (auth && typeof auth.syncFromFirebase === 'function') {
+          auth.syncFromFirebase();
+        }
+
         if (appInitialized) {
           const active = sm.getActiveTournament();
           if (!active) {
@@ -300,8 +313,31 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   /* ══════════════════════════════════════════════════════
-     VERIFICAR SESSÃO EXISTENTE
+     VERIFICAR SESSÃO EXISTENTE & STATUS NUVEM
   ══════════════════════════════════════════════════════ */
+
+  function updateCloudStatusPills() {
+    const isReady = window.FirebaseConfig && window.FirebaseConfig.isReady();
+    const loginPill = document.getElementById("login-cloud-status");
+    if (loginPill) {
+      if (isReady) {
+        loginPill.className = "login-cloud-status connected";
+        loginPill.innerHTML = "🟢 Nuvem Firebase Conectada";
+      } else {
+        loginPill.className = "login-cloud-status disconnected";
+        loginPill.innerHTML = "🟡 Nuvem Desconectada (Chaves pendentes)";
+      }
+    }
+  }
+
+  updateCloudStatusPills();
+  if (window.FirebaseConfig && typeof window.FirebaseConfig.onReady === 'function') {
+    window.FirebaseConfig.onReady(() => {
+      updateCloudStatusPills();
+    });
+  }
+  setTimeout(updateCloudStatusPills, 1000);
+  setTimeout(updateCloudStatusPills, 3000);
 
   // Sempre exibir a tela de login ao abrir o endereço do projeto.
   // A sessão anterior é encerrada ao carregar a página (os dados dos torneios são preservados).
@@ -1074,6 +1110,7 @@ document.addEventListener("DOMContentLoaded", () => {
             firebaseStatusBanner.className = "firebase-status-banner connected";
             firebaseStatusTxt.textContent = "🟢 Conectado ao Firebase Firestore (Sincronização Ativa)";
           }
+          updateCloudStatusPills();
 
           auth._setupRealtime();
           await auth.syncFromFirebase();

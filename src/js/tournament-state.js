@@ -114,22 +114,32 @@ class TournamentStateManager {
   }
 
   _initFirebaseSync() {
-    // Tenta sincronizar ao iniciar
-    setTimeout(() => { this._pullFromFirebase(); }, 500);
-
-    // Configura o listener de tempo real
-    if (this._getDb()) {
+    const startSync = () => {
       this._setupRealtimeListener();
-    } else if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
-      window.addEventListener('load', () => {
-        setTimeout(() => {
-          if (this._getDb()) {
-            this._setupRealtimeListener();
-            this._pullFromFirebase();
-          }
-        }, 800);
+      this._pullFromFirebase();
+    };
+
+    if (this._getDb()) {
+      startSync();
+    } else if (window.FirebaseConfig && typeof window.FirebaseConfig.onReady === 'function') {
+      window.FirebaseConfig.onReady(() => {
+        startSync();
       });
     }
+
+    // Retentativas adicionais para celulares onde o script CDN do Firebase pode demorar
+    let attempts = 0;
+    const interval = setInterval(() => {
+      attempts++;
+      if (this._getDb()) {
+        if (!this._realtimeUnsubscribe) {
+          startSync();
+        }
+        clearInterval(interval);
+      } else if (attempts >= 20) {
+        clearInterval(interval);
+      }
+    }, 500);
   }
 
   _setupRealtimeListener() {

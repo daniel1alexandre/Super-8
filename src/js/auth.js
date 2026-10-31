@@ -72,22 +72,32 @@ class AuthManager {
   }
 
   _initFirebaseSync() {
-    // Sincroniza logo ao iniciar
-    setTimeout(() => { this.syncFromFirebase(); }, 300);
-
-    // Configura escuta em tempo real do Firestore
-    if (window.FirebaseConfig && window.FirebaseConfig.isReady()) {
+    const startSync = () => {
       this._setupRealtime();
-    } else if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
-      window.addEventListener('load', () => {
-        setTimeout(() => {
-          if (window.FirebaseConfig && window.FirebaseConfig.isReady()) {
-            this._setupRealtime();
-            this.syncFromFirebase();
-          }
-        }, 500);
+      this.syncFromFirebase();
+    };
+
+    if (window.FirebaseConfig && window.FirebaseConfig.isReady()) {
+      startSync();
+    } else if (window.FirebaseConfig && typeof window.FirebaseConfig.onReady === 'function') {
+      window.FirebaseConfig.onReady(() => {
+        startSync();
       });
     }
+
+    // Retentativas para conexões móveis
+    let attempts = 0;
+    const interval = setInterval(() => {
+      attempts++;
+      if (window.FirebaseConfig && window.FirebaseConfig.isReady()) {
+        if (!this._realtimeUnsubscribe) {
+          startSync();
+        }
+        clearInterval(interval);
+      } else if (attempts >= 20) {
+        clearInterval(interval);
+      }
+    }, 500);
   }
 
   _setupRealtime() {
